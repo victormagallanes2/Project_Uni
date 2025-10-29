@@ -1,15 +1,18 @@
+import os
 from core.views import render_template
 from home.views import home
 from users.views import users
 
+from paste.urlparser import StaticURLParser
+from paste.urlmap import URLMap # ¡Importamos URLMap!
+
 # ----------------------------------------------
-# Aplicación WSGI (La Interfaz que Gunicorn necesita)
+# 1. Aplicación WSGI Dinámica (Maneja el enrutamiento)
 # ----------------------------------------------
 
-def application(environ, start_response):
+def app(environ, start_response):
     """
-    Función principal de la aplicación WSGI.
-    Gunicorn llamará a esta función para cada solicitud HTTP.
+    Función principal que maneja las solicitudes dinámicas (rutas y lógica).
     """
     path = environ.get('PATH_INFO', '')
     method = environ.get('REQUEST_METHOD', 'GET')
@@ -17,11 +20,9 @@ def application(environ, start_response):
     
     # 1. Enrutamiento (Routing)
     if path == '/' or path == '/home':
-        # Ruta principal
         status, headers, body_content = home(environ)
         
     elif path == '/users':
-        # Ruta de users
         status, headers, body_content = users(environ)
         
     else:
@@ -32,11 +33,32 @@ def application(environ, start_response):
 
     # 2. Enviar cabeceras
     start_response(status, headers)
-    # Asegura que el cuerpo es un iterable de bytes
+    
+    # 3. Devolver el cuerpo de la respuesta (Iterable de bytes)
     if isinstance(body_content, bytes):
         return [body_content]
     elif isinstance(body_content, str):
         return [body_content.encode('utf-8')]
 
-    # 3. Devolver el cuerpo de la respuesta
-    return [body_content]
+    return [body_content] 
+
+
+# ----------------------------------------------
+# 2. CONFIGURACIÓN DEL MIDDLEWARE ESTÁTICO 
+# ----------------------------------------------
+
+# Ruta BASE del proyecto confirmada por el usuario
+PROJECT_ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
+
+# Define la ruta ABSOLUTA de la carpeta 'static'
+STATIC_ROOT = os.path.join(PROJECT_ROOT_PATH, 'static')
+
+# Crea la aplicación WSGI para servir archivos estáticos. 
+static_app = StaticURLParser(STATIC_ROOT)
+
+# 3. PUNTO DE ENTRADA FINAL PARA EL SERVIDOR
+# SOLUCIÓN DEL BUG: Inicializamos URLMap vacío y asignamos las rutas.
+# Esto asegura que el constructor no confunda el diccionario con el manejador de 404.
+application = URLMap()
+application['/static'] = static_app
+application['/'] = app
