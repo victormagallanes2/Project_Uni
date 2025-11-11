@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Mi Sitio Web{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.css">
+ <style>
+        html, body {
+            height: 100%;
+        }
+    </style>
+</head>
+
+
+<body class="d-flex flex-column h-100"> 
+
+    <header>
+        </header>
+
+    <div id="content" class="flex-grow-1 d-flex justify-content-center align-items-center">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+    </footer>
+</body>
+</html>

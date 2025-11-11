@@ -1,0 +1,32 @@
+{% extends "base_login.html" %}
+
+{% block title %}
+    {{ title }} | Mi Proyecto
+{% endblock %}
+
+{% block content %}
+<div class="container h-100">
+    <div class="row justify-content-center align-items-center h-100">
+        <div class="col-md-5 col-lg-4">
+            <div class="card shadow-lg p-3">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">Iniciar Sesión</h3>
+                    
+                    <form>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                    </form>
+
+                </div>
+            </div>
+            </div>
+    </div>
+</div>
+{% endblock %}

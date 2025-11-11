@@ -1,10 +1,12 @@
 import os
 from core.views import render_template
 from home.views import home
-from users.views import users
+from authentication.views import login
+from users.views import users_list
 
 from paste.urlparser import StaticURLParser
 from paste.urlmap import URLMap # ¡Importamos URLMap!
+
 
 # ----------------------------------------------
 # 1. Aplicación WSGI Dinámica (Maneja el enrutamiento)
@@ -22,8 +24,11 @@ def app(environ, start_response):
     if path == '/' or path == '/home':
         status, headers, body_content = home(environ)
         
+    elif path == '/login':
+        status, headers, body_content = login(environ)
+
     elif path == '/users':
-        status, headers, body_content = users(environ)
+        status, headers, body_content = users_list(environ)
         
     else:
         # 404 Not Found

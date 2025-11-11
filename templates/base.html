@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Dashboard | Mi Aplicación{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.css">
+    
+    <style>
+        .sidebar {
+            height: 100vh; /* Ocupa toda la altura de la ventana */
+            width: 250px; /* Ancho fijo de la barra */
+            position: fixed; /* Fija la barra lateral */
+            top: 0;
+            left: 0;
+            z-index: 1000; /* Siempre por encima */
+            padding-top: 56px; /* Espacio para la barra de navegación superior */
+        }
+        .content-wrapper {
+            margin-left: 250px; /* Mueve el contenido para dejar espacio al sidebar */
+            padding-top: 56px; /* Espacio para la barra de navegación superior */
+        }
+    </style>
+</head>
+<body>
+    
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <a class="navbar-brand" href="/">Mi Logo</a>
+        
+        <div class="collapse navbar-collapse justify-content-end">
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user-circle"></i> Usuario
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="#">Mi Perfil</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout">Cerrar Sesión (Logout)</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="sidebar bg-light border-right">
+        <div class="list-group list-group-flush">
+            <a href="#" class="list-group-item list-group-item-action bg-light text-primary fw-bold">
+                Módulos
+            </a>
+            <a href="/modulo/ventas" class="list-group-item list-group-item-action bg-light">
+                Ventas
+            </a>
+            <a href="/modulo/inventario" class="list-group-item list-group-item-action bg-light">
+                Inventario
+            </a>
+            <a href="/modulo/finanzas" class="list-group-item list-group-item-action bg-light">
+                Finanzas
+            </a>
+            </div>
+    </div>
+    
+    <div class="content-wrapper">
+        <div class="container-fluid p-4">
+            {% block content %}
+                {% endblock %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>
