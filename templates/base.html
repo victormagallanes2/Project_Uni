@@ -47,22 +47,74 @@
         </div>
     </nav>
     
-    <div class="sidebar bg-light border-right">
-        <div class="list-group list-group-flush">
-            <a href="#" class="list-group-item list-group-item-action bg-light text-primary fw-bold">
-                Módulos
+<div class="sidebar bg-light border-right">
+    <div class="p-3"> 
+        
+        <div class="text-uppercase fw-bold text-secondary mb-3 mt-2">
+            Navegación
+        </div>
+        
+        <a href="/dashboard" class="list-group-item list-group-item-action bg-light border-0">
+            <i class="fas fa-home me-2"></i> Inicio
+        </a>
+        
+
+
+        <a href="#ventas-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
+            <div><i class="fas fa-chart-line me-2"></i> Postgrado</div>
+            <i class="fas fa-chevron-down small"></i>
+        </a>
+        
+        <div class="collapse" id="ventas-sub">
+            <a href="/ventas/pedidos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Aranceles
             </a>
-            <a href="/modulo/ventas" class="list-group-item list-group-item-action bg-light">
-                Ventas
+            <a href="/ventas/clientes" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Alumnos
             </a>
-            <a href="/modulo/inventario" class="list-group-item list-group-item-action bg-light">
-                Inventario
-            </a>
-            <a href="/modulo/finanzas" class="list-group-item list-group-item-action bg-light">
-                Finanzas
+            <a href="/ventas/reportes" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Reportes
             </a>
         </div>
-    </div>
+        
+
+
+        <a href="#inventario-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
+            <div><i class="fas fa-warehouse me-2"></i> Doctorado</div>
+            <i class="fas fa-chevron-down small"></i>
+        </a>
+        
+        <div class="collapse" id="inventario-sub">
+            <a href="/inventario/productos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Alumnos
+            </a>
+            <a href="/inventario/entradas" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Reportes
+            </a>
+        </div>
+
+
+
+        <a href="#inventario-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
+            <div><i class="fas fa-warehouse me-2"></i> Facturacion</div>
+            <i class="fas fa-chevron-down small"></i>
+        </a>
+        
+        <div class="collapse" id="inventario-sub">
+            <a href="/inventario/productos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Alumnos
+            </a>
+            <a href="/inventario/entradas" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
+                Reportes
+            </a>
+        </div>
+
+
+
+
+
+        </div>
+</div>
     
     <div class="content-wrapper">
         <div class="container-fluid p-4">
