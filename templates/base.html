@@ -5,26 +5,31 @@
     <title>{% block title %}Dashboard | Mi Aplicación{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/bootstrap.css">
     
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
     <style>
         .sidebar {
-            height: 100vh; /* Ocupa toda la altura de la ventana */
-            width: 250px; /* Ancho fijo de la barra */
-            position: fixed; /* Fija la barra lateral */
+            height: 100vh;
+            width: 250px;
+            position: fixed;
             top: 0;
             left: 0;
-            z-index: 1000; /* Siempre por encima */
-            padding-top: 56px; /* Espacio para la barra de navegación superior */
+            z-index: 1000;
+            padding-top: 56px; /* Espacio para el navbar superior */
         }
         .content-wrapper {
-            margin-left: 250px; /* Mueve el contenido para dejar espacio al sidebar */
-            padding-top: 56px; /* Espacio para la barra de navegación superior */
+            margin-left: 250px; /* Mueve el contenido */
+            padding-top: 56px; /* Espacio para el navbar superior */
+        }
+        .bg-main-blue {
+            background-color: rgb(30 58 138) !important; /* Tu color personalizado */
         }
     </style>
 </head>
 <body>
     
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="/">Mi Logo</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-main-blue fixed-top"> 
+        <a class="navbar-brand px-3" href="/"><img src="/static/img/logo.jpg" alt="Logo de la Aplicación" height="30"></a>
         
         <div class="collapse navbar-collapse justify-content-end">
             <ul class="navbar-nav">
@@ -56,7 +61,7 @@
             <a href="/modulo/finanzas" class="list-group-item list-group-item-action bg-light">
                 Finanzas
             </a>
-            </div>
+        </div>
     </div>
     
     <div class="content-wrapper">
@@ -67,5 +72,5 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    </body>
+</body>
 </html>

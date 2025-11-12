@@ -32,7 +32,7 @@ def app(environ, start_response):
         
     else:
         # 404 Not Found
-        body_content = render_template('templates/404.html') 
+        body_content = render_template('404.html') 
         status = '404 NOT FOUND'
         headers = [('Content-type', 'text/html')]
 
