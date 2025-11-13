@@ -2,15 +2,17 @@ import os
 from core.views import render_template
 from home.views import home
 from authentication.views import login
-from users.views import users_list, users_create
-
+from users.views import users_list, users_create, users_edit, users_delete
 from paste.urlparser import StaticURLParser
-from paste.urlmap import URLMap # ¡Importamos URLMap!
-
-
+from paste.urlmap import URLMap 
+import re
+from urllib.parse import parse_qs
+from db import SessionLocal, User # Asumiendo que tu modelo y sesión están aquí
+import bcrypt 
 # ----------------------------------------------
 # 1. Aplicación WSGI Dinámica (Maneja el enrutamiento)
 # ----------------------------------------------
+
 
 def app(environ, start_response):
     """
@@ -18,10 +20,25 @@ def app(environ, start_response):
     """
     path = environ.get('PATH_INFO', '')
     method = environ.get('REQUEST_METHOD', 'GET')
-    status, headers, body_content = None, None, None
     
-    # 1. Enrutamiento (Routing)
-    if path == '/' or path == '/home':
+    # Inicialización, aunque las rutas deberían asignar estos valores.
+    status, headers, body_content = '404 NOT FOUND', [('Content-type', 'text/html')], None 
+
+    # 1. RUTA DINÁMICA DE EDICIÓN (users/edit/{id})
+    edit_match = re.match(r'^/users/edit/(\d+)$', path)
+    delete_match = re.match(r'^/users/delete/(\d+)$', path)
+    
+    if edit_match:
+        # Captura el ID del usuario
+        user_id = int(edit_match.group(1))
+        status, headers, body_content = users_edit(environ, user_id)
+
+    elif delete_match:
+        # Captura el ID del usuario para ELIMINACIÓN
+        user_id = int(delete_match.group(1))
+        status, headers, body_content = users_delete(environ, user_id)
+
+    elif path == '/' or path == '/home':
         status, headers, body_content = home(environ)
         
     elif path == '/login':
@@ -30,12 +47,13 @@ def app(environ, start_response):
     elif path == '/users/create':
         status, headers, body_content = users_create(environ)
 
+
     elif path == '/users/list':
         status, headers, body_content = users_list(environ)
         
     else:
         # 404 Not Found
-        body_content = render_template('404.html') 
+        body_content = render_template('404.html')  # <--- body_content es str aquí
         status = '404 NOT FOUND'
         headers = [('Content-type', 'text/html')]
 
@@ -43,12 +61,14 @@ def app(environ, start_response):
     start_response(status, headers)
     
     # 3. Devolver el cuerpo de la respuesta (Iterable de bytes)
-    if isinstance(body_content, bytes):
-        return [body_content]
-    elif isinstance(body_content, str):
+    # CORRECCIÓN FINAL: Normalizamos el retorno.
+    if isinstance(body_content, str):
+        # Si es una cadena (solo debería ser el 404), la codificamos.
         return [body_content.encode('utf-8')]
-
-    return [body_content] 
+    
+    # Si ya es una lista de bytes (list[bytes]), la devolvemos directamente.
+    # Esto maneja todas las respuestas de las vistas (200, 302, 400, 500).
+    return body_content 
 
 
 # ----------------------------------------------
@@ -65,8 +85,6 @@ STATIC_ROOT = os.path.join(PROJECT_ROOT_PATH, 'static')
 static_app = StaticURLParser(STATIC_ROOT)
 
 # 3. PUNTO DE ENTRADA FINAL PARA EL SERVIDOR
-# SOLUCIÓN DEL BUG: Inicializamos URLMap vacío y asignamos las rutas.
-# Esto asegura que el constructor no confunda el diccionario con el manejador de 404.
 application = URLMap()
 application['/static'] = static_app
 application['/'] = app
