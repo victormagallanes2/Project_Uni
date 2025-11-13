@@ -10,9 +10,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
+    name = Column(String(50))
+    last_name = Column(String(50))
     email = Column(String, unique=True, index=True)
-    password = Column(String(100)) 
+    password = Column(String(100))
 
     def __repr__(self):
         return f"User(id={self.id}, email='{self.email}')"

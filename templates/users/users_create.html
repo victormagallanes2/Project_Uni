@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {{ title }} | Mi Proyecto
+{% endblock %}
+
+{% block content %}
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Crear Nuevo Usuario</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7"> 
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-primary">Datos Personales y Acceso</h5>
+                
+                <form method="POST" action="/users/create" onsubmit="return validatePassword()"> 
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="name" name="name" maxlength="50" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="last_name" class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" maxlength="50" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Correo Electrónico (Email)</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                        <div class="form-text">Usado para iniciar sesión.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        <div id="password_match_error" class="form-text text-danger" style="display:none;">
+                            Las contraseñas no coinciden.
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="/users" class="btn btn-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Usuario
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-5">
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">Requisitos de Contraseña</h4>
+            <p>Asegúrate de que la contraseña tenga al menos 8 caracteres. El uso de mayúsculas, números y símbolos es altamente recomendado para mayor seguridad.</p>
+        </div>
+    </div>
+</div>
+{% block script_footer %}
+<script>
+    function validatePassword() {
+        // 1. Obtener los valores y el elemento de error
+        var password = document.getElementById('password').value;
+        var confirm_password = document.getElementById('confirm_password').value;
+        var error_div = document.getElementById('password_match_error');
+
+        // 2. Comparar
+        if (password !== confirm_password) {
+            // Si no son iguales:
+            error_div.style.display = 'block'; // Muestra el mensaje de error
+            document.getElementById('confirm_password').focus(); // Enfoca el campo
+            return false; // Evita que el formulario se envíe (CANCELAR SUBMIT)
+        } else {
+            // Si son iguales:
+            error_div.style.display = 'none'; // Asegura que el error esté oculto
+            return true; // Permite que el formulario se envíe (PERMITIR SUBMIT)
+        }
+    }
+</script>
+{% endblock %}
+{% endblock %}

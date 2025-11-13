@@ -2,7 +2,7 @@ import os
 from core.views import render_template
 from home.views import home
 from authentication.views import login
-from users.views import users_list
+from users.views import users_list, users_create
 
 from paste.urlparser import StaticURLParser
 from paste.urlmap import URLMap # ¡Importamos URLMap!
@@ -27,7 +27,10 @@ def app(environ, start_response):
     elif path == '/login':
         status, headers, body_content = login(environ)
 
-    elif path == '/users':
+    elif path == '/users/create':
+        status, headers, body_content = users_create(environ)
+
+    elif path == '/users/list':
         status, headers, body_content = users_list(environ)
         
     else:
