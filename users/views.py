@@ -1,9 +1,10 @@
-from core.views import render_template
+from core.views import render_template, login_required
 from urllib.parse import parse_qs
 from db import SessionLocal, User # Ajusta la ruta a tu modelo
 import bcrypt
 
 
+@login_required
 def users_create(environ):
     """
     Maneja las solicitudes GET (muestra el formulario) y 
@@ -86,6 +87,7 @@ def users_create(environ):
         db.close()
 
 
+@login_required
 def users_list(environ):
     # 1. Abrir sesión de base de datos
     db = SessionLocal()
@@ -113,6 +115,7 @@ def users_list(environ):
         db.close()
 
 
+@login_required
 def users_edit(environ, user_id):
     method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
@@ -187,6 +190,8 @@ def users_edit(environ, user_id):
     finally:
         db.close()
 
+
+@login_required
 def users_delete(environ, user_id):
     """
     Busca un usuario por ID, lo elimina de la DB y redirige.
