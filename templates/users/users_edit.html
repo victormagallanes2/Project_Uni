@@ -16,7 +16,7 @@
                 <h5 class="card-title text-primary">Datos Personales</h5>
                 
                 <form method="POST" action="/users/edit/{{ user.id }}" onsubmit="return validatePassword()"> 
-                    
+                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="name" class="form-label">Nombre</label>
@@ -39,6 +39,18 @@
                                    value="{{ user.last_name }}" 
                                    required>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="user_type_id" class="form-label">Tipo de Usuario</label>
+                            <select class="form-select" id="user_type_id" name="user_type_id" required>
+                            {% for type in user_types %}
+                                <option value="{{ type.id }}" {% if user.user_type_id == type.id %}selected{% endif %}>
+                                {{ type.name }}
+                                </option>
+                            {% else %}
+                                <option value="" disabled>No hay tipos de usuario disponibles.</option>
+                            {% endfor %}
+                            </select>
                     </div>
 
                     <div class="mb-3">
@@ -70,7 +82,7 @@
                     </div>
 
                     <div class="d-flex justify-content-end mt-4">
-                        <a href="/users" class="btn btn-secondary me-2">Cancelar</a>
+                        <a href="/users/list" class="btn btn-secondary me-2">Cancelar</a>
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-edit me-1"></i> Actualizar Usuario
                         </button>

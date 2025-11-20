@@ -1,87 +1,106 @@
-from core.views import render_template, login_required
+from core.views import render_template, login_required, generate_csrf_token
 from urllib.parse import parse_qs
-from db import SessionLocal, User # Ajusta la ruta a tu modelo
+from db import SessionLocal, User, UserType
 import bcrypt
 
 
 @login_required
 def users_create(environ):
-    """
-    Maneja las solicitudes GET (muestra el formulario) y 
-    POST (procesa la creación del usuario).
-    """
     method = environ.get('REQUEST_METHOD', 'GET')
-    db = SessionLocal() # Abrir la sesión de DB
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    csrf_token = session['csrf_token']
+    
+    try:
+        user_types = db.query(UserType).order_by(UserType.name).all()
+    except Exception as e:
+        print(f"Error al consultar tipos de usuario: {e}")
+        user_types = [] 
+
+    error_msg = None
     
     try:
         if method == 'POST':
-            # === LÓGICA PARA EL MÉTODO POST (Crear Usuario) ===
-            
-            # 1. Obtener los datos del cuerpo
             try:
                 request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            except (ValueError):
+            except ValueError:
                 request_body_size = 0
-            
+                
             request_body = environ['wsgi.input'].read(request_body_size)
             form_data = parse_qs(request_body.decode('utf-8'))
+            
+            form_token = form_data.get('csrf_token', [''])[0]
+            session_token = session.get('csrf_token')
 
-            # 2. Extraer y limpiar datos (Usamos .get(..., [''])[0] para extraer el primer elemento)
-            name = form_data.get('name', [''])[0]
-            last_name = form_data.get('last_name', [''])[0]
-            email = form_data.get('email', [''])[0]
+            if not session_token or form_token != session_token:
+                error_msg = "Error de seguridad (CSRF). Inténtalo de nuevo."
+                
+                if 'csrf_token' in session:
+                    del session['csrf_token']
+                    
+                html = render_template('users/users_create.html', error=error_msg, csrf_token=csrf_token, user_types=user_types)
+                return "403 Forbidden", [('Content-type', 'text/html')], [html.encode('utf-8')]
+                
+            if 'csrf_token' in session:
+                del session['csrf_token']
+                
+            name = form_data.get('name', [''])[0].strip()
+            last_name = form_data.get('last_name', [''])[0].strip()
+            email = form_data.get('email', [''])[0].strip()
             password = form_data.get('password', [''])[0]
             confirm_password = form_data.get('confirm_password', [''])[0]
+            user_type_id = form_data.get('user_type_id', ['1'])[0] 
             
-            # --- Validación (¡Simplificada para el ejemplo!) ---
             if password != confirm_password:
-                # Mostrar el formulario de nuevo con un mensaje de error
-                error_msg = "Error: Las contraseñas no coinciden."
-                html = render_template('users/users_create.html', error=error_msg)
-                return "400 Bad Request", [('Content-type', 'text/html')], html
+                error_msg = "Error de validación: Las contraseñas no coinciden."
+            
+            elif not all([name, last_name, email, password, confirm_password]):
+                error_msg = "Error de validación: Todos los campos son obligatorios."
+            
+            if error_msg:
+                html = render_template('users/users_create.html', 
+                                       error=error_msg, 
+                                       csrf_token=csrf_token,
+                                       user_types=user_types)
+                return "400 Bad Request", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
-            # 3. Hasheo de la Contraseña
             salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-
-            # 4. Guardar en DB
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+            
             new_user = User(
                 name=name,
                 last_name=last_name,
                 email=email,
-                password=hashed_password.decode('utf-8')
+                password=hashed_password,
+                user_type_id=int(user_type_id)
             )
             db.add(new_user)
             db.commit()
             
-            # 5. Redirección exitosa (Post-Redirect-Get Pattern)
+            session['flash_message'] = f"Usuario {name} creado con éxito."
             status = '302 Found'
-            headers = [('Location', '/users/list')] # Redirigir al dashboard o lista de usuarios
+            headers = [('Location', '/users/list')]
             return status, headers, [b'Redirecting...']
 
         else:
-            # === LÓGICA PARA EL MÉTODO GET (Mostrar Formulario) ===
-            html = render_template('users/users_create.html')
-            return "200 OK", [('Content-type', 'text/html')], html
+            html = render_template('users/users_create.html', 
+                                   csrf_token=csrf_token,
+                                   user_types=user_types)
+            return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         db.rollback()
+        error_msg = f"Error al crear usuario: {e}"
+        print(error_msg)
         
-        # 1. Identificar el error para mostrar un mensaje amigable
-        if "UNIQUE constraint failed" in str(e):
-            error_msg = "Error: El correo electrónico ya está registrado."
-        else:
-            print(f"Error al procesar solicitud POST: {e}")
-            error_msg = f"Error interno del servidor: {e}"
-        
-        # 2. Renderizar la plantilla con el mensaje de error
-        html = render_template('users/users_create.html', error=error_msg)
-        
-        # 3. Codificar la cadena de texto (html) a bytes ANTES de retornar
-        body_content = [html.encode('utf-8')]
-        
-        # 4. Retornar el estado y la lista de bytes
-        return "500 Internal Server Error", [('Content-type', 'text/html')], body_content
+        html = render_template('users/users_create.html', 
+                               error="Error de Base de Datos (email duplicado o campo faltante).", 
+                               csrf_token=csrf_token,
+                               user_types=user_types) 
+        return "500 Internal Server Error", [('Content-type', 'text/html')], [html.encode('utf-8')]
         
     finally:
         db.close()
@@ -89,29 +108,26 @@ def users_create(environ):
 
 @login_required
 def users_list(environ):
-    # 1. Abrir sesión de base de datos
+    session = environ['beaker.session']
     db = SessionLocal()
-    
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    csrf_token = session['csrf_token']
+    flash_message = session.pop('flash_message', None) 
     try:
-        # 2. Consultar todos los usuarios
-        # Nota: Usamos .all() para obtener la lista de objetos User
         users = db.query(User).all()
-        
-        # 3. Renderizar la plantilla, pasando la lista de usuarios
-        # La clave 'users' estará disponible en el HTML
-        html = render_template('users/users_list.html', users=users)
-        
-        # 4. Retornar la respuesta WSGI
-        return "200 OK", [('Content-type', 'text/html')], html
+        html = render_template('users/users_list.html', 
+                               users=users,
+                               csrf_token=csrf_token,
+                               flash_message=flash_message)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         print(f"Error al cargar lista de usuarios: {e}")
-        # En caso de error, puedes devolver una página de error 500
         error_html = render_template('500.html', error=str(e))
-        return "500 Internal Server Error", [('Content-type', 'text/html')], error_html
+        return "500 Internal Server Error", [('Content-type', 'text/html')], [error_html.encode('utf-8')]
 
     finally:
-        # 5. Cerrar la sesión de base de datos (¡Crucial!)
         db.close()
 
 
@@ -119,110 +135,148 @@ def users_list(environ):
 def users_edit(environ, user_id):
     method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
-    
+    session = environ['beaker.session']
+
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    csrf_token = session['csrf_token']
+    try:
+        user_types = db.query(UserType).order_by(UserType.name).all()
+    except Exception as e:
+        print(f"Error al consultar tipos de usuario: {e}")
+        user_types = []
+
     try:
         user = db.query(User).filter(User.id == user_id).first()
-        
         if not user:
-            # 404 - Retorno en lista de bytes
             status = '404 Not Found'
             headers = [('Content-type', 'text/html')]
             html = render_template('404.html')
-            return status, headers, [html.encode('utf-8')] 
-            
-        
+            return status, headers, [html.encode('utf-8')]
         if method == 'POST':
-            # === LÓGICA POST (Actualización) ===
             try:
                 request_body_size = int(environ.get('CONTENT_LENGTH', 0))
             except ValueError:
                 request_body_size = 0
-            
             request_body = environ['wsgi.input'].read(request_body_size)
             form_data = parse_qs(request_body.decode('utf-8'))
+            form_token = form_data.get('csrf_token', [''])[0]
+            session_token = session.get('csrf_token')
 
-            # 1. Extraer datos
-            name = form_data.get('name', [''])[0]
-            last_name = form_data.get('last_name', [''])[0]
-            email = form_data.get('email', [''])[0]
+            if not session_token or form_token != session_token:
+                print("ALERTA DE SEGURIDAD: Falló la verificación CSRF en users_edit.")
+                error_msg = "Error de seguridad (CSRF). Por favor, intenta recargar la página."
+                if 'csrf_token' in session:
+                    del session['csrf_token']
+                    
+                html = render_template('users/users_edit.html', user=user, error=error_msg, csrf_token=csrf_token, user_types=user_types)
+                return "403 Forbidden", [('Content-type', 'text/html')], [html.encode('utf-8')]
+            
+            if 'csrf_token' in session:
+                del session['csrf_token']
+
+            name = form_data.get('name', [user.name])[0].strip()
+            last_name = form_data.get('last_name', [''])[0].strip()
+            email = form_data.get('email', [user.email])[0].strip()
             password = form_data.get('password', [''])[0]
             confirm_password = form_data.get('confirm_password', [''])[0]
-            
-            # 2. Actualizar campos simples
+            user_type_id = form_data.get('user_type_id', [str(user.user_type_id)])[0]
+            error_msg = None
             user.name = name
             user.last_name = last_name
             user.email = email
+            user.user_type_id = int(user_type_id)
             
-            # 3. Lógica de Cambio de Contraseña
             if password:
                 if password != confirm_password:
                     error_msg = "Error: Las nuevas contraseñas no coinciden."
-                    html = render_template('users/users_edit.html', user=user, error=error_msg)
-                    # ERROR de Validación - Retorno en lista de bytes
-                    return "400 Bad Request", [('Content-type', 'text/html')], [html.encode('utf-8')]
                 
-                # Hashear y actualizar
-                salt = bcrypt.gensalt()
-                hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-                user.password = hashed_password.decode('utf-8')
+                if not error_msg:
+                    salt = bcrypt.gensalt()
+                    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+                    user.password = hashed_password.decode('utf-8')
             
-            # 4. Guardar cambios
+            if error_msg:
+                html = render_template('users/users_edit.html', 
+                                       user=user, 
+                                       error=error_msg,
+                                       csrf_token=csrf_token,
+                                       user_types=user_types)
+                return "400 Bad Request", [('Content-type', 'text/html')], [html.encode('utf-8')]
             db.commit()
-            
-            # 5. Redirección exitosa (Correcto: lista de bytes [b'..'])
+            session['flash_message'] = f"Usuario {user.name} actualizado con éxito."
             status = '302 Found'
-            headers = [('Location', '/users/list')] 
+            headers = [('Location', '/users/list')]
             return status, headers, [b'Redirecting...']
-        
-        else: # Manejo explícito del GET
-            # === LÓGICA GET (Mostrar Formulario) ===
-            html = render_template('users/users_edit.html', user=user)
-            # ÉXITO GET - Retorno en lista de bytes
+        else:
+            html = render_template('users/users_edit.html', user=user, csrf_token=csrf_token, user_types=user_types)
             return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         db.rollback()
-        # Manejo de error 500 - Retorno en lista de bytes
-        print(f"Error al cargar usuario para edición: {e}")
-        error_html = render_template('500.html', error=str(e))
+        print(f"Error al guardar los cambios del usuario: {e}")
+        
+        if "IntegrityError" in str(e):
+            display_error = "El email ya existe en el sistema. Por favor, utiliza otro."
+        else:
+            display_error = "Ocurrió un error inesperado al guardar los datos."
+
+        error_html = render_template('users/users_edit.html', user=user, error=display_error, csrf_token=csrf_token, user_types=user_types)
         return "500 Internal Server Error", [('Content-type', 'text/html')], [error_html.encode('utf-8')]
         
     finally:
         db.close()
 
 
-@login_required
+@login_required 
 def users_delete(environ, user_id):
-    """
-    Busca un usuario por ID, lo elimina de la DB y redirige.
-    """
+    method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
-    
+    session = environ['beaker.session']
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
     try:
-        # 1. Buscar al usuario por ID
         user = db.query(User).filter(User.id == user_id).first()
-        
         if not user:
-            # Si el usuario no existe, redirigir sin hacer nada o mostrar un 404
+            session['flash_message'] = "Error: Usuario no encontrado."
             status = '302 Found'
-            headers = [('Location', '/users/list')] # Redirigir a la lista
+            headers = [('Location', '/users/list')]
             return status, headers, [b'Redirecting...']
 
-        # 2. Eliminar el usuario
-        db.delete(user)
-        db.commit()
-        
-        # 3. Redirección exitosa
-        status = '302 Found'
-        headers = [('Location', '/users/list')] 
-        return status, headers, [b'Redirecting...']
+        if method == 'POST':
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            request_body = environ['wsgi.input'].read(request_body_size)
+            form_data = parse_qs(request_body.decode('utf-8'))
+            form_token = form_data.get('csrf_token', [''])[0]
+            session_token = session.get('csrf_token')
 
+            if not session_token or form_token != session_token:
+                session['flash_message'] = "Error de seguridad (CSRF)."
+                status = '403 Forbidden'
+                headers = [('Location', '/users/list')]
+                return status, headers, [b'Forbidden']
+
+            if 'csrf_token' in session:
+                del session['csrf_token']
+            db.delete(user)
+            db.commit()
+            session['flash_message'] = f"Usuario {user.name} eliminado con éxito."
+            status = '302 Found'
+            headers = [('Location', '/users/list')]
+            return status, headers, [b'Redirecting...']
+        
+        else:
+            html = render_template('users/users_confirm_delete.html', 
+                                   user=user, 
+                                   csrf_token=session.get('csrf_token'))
+            return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+            
     except Exception as e:
         db.rollback()
-        print(f"Error al eliminar usuario {user_id}: {e}")
-        # En caso de error, redirigir a la lista con un posible error flash
+        print(f"Error al eliminar usuario: {e}")
+        session['flash_message'] = "Error interno al intentar eliminar el usuario."
         status = '302 Found'
-        headers = [('Location', '/users/list')] 
+        headers = [('Location', '/users/list')]
         return status, headers, [b'Redirecting...']
         
     finally:

@@ -11,8 +11,8 @@
             <div class="card shadow-lg p-3">
                 <div class="card-body">
                     <h3 class="card-title text-center mb-4">Iniciar Sesión</h3>
-                    
                     <form method="POST" action="/login">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <div class="mb-3">
                             <label for="email" class="form-label">Correo Electrónico</label>
                             <input type="email" class="form-control" id="email" name="email" required>
