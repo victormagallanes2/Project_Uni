@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Dashboard | Mi Aplicación{% endblock %}</title>
+    <!-- Asumo que tu archivo CSS de Bootstrap está en /static/css/bootstrap.css -->
     <link rel="stylesheet" href="/static/css/bootstrap.css">
     
+    <!-- Font Awesome (mantenido solo para el icono de usuario en el navbar superior) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
+        /* Contenedor principal de la barra lateral */
         .sidebar {
             height: 100vh;
             width: 250px;
@@ -24,20 +27,63 @@
         .bg-main-blue {
             background-color: rgb(30 58 138) !important; /* Tu color personalizado */
         }
+
+        /* ------------------------------------------- */
+        /* === ESTILOS PARA MENÚ SUPERIOR (HOVER) === */
+        /* ------------------------------------------- */
+        
+        /* 1. Ocultar el menú por defecto y definir el posicionamiento manual */
+        .navbar-nav .dropdown-menu {
+            display: none !important; /* Forzamos la ocultación */
+            position: absolute !important; 
+            inset-inline-start: auto;
+            right: 0; /* Alinea el borde derecho del menú al borde derecho del botón */
+            
+            /* AJUSTE DE POSICIÓN: Mueve el menú 20px a la izquierda, despegándolo */
+            transform: translateX(-20px) !important; 
+            margin-top: 0.125rem !important; 
+            z-index: 1000;
+        }
+
+        /* 2. Mostrar el menú cuando se hace HOVER sobre el LI padre */
+        .navbar-nav .dropdown:hover > .dropdown-menu {
+            display: block !important; /* Forzamos la visualización al hacer hover */
+        }
+
+        /* ---------------------------------------------------- */
+        /* === ESTILOS PARA SIDEBAR (NAV-PILLS y Hover) === */
+        /* ---------------------------------------------------- */
+        
+        /* Estilo base para los nav-link del sidebar */
+        .sidebar .nav-link {
+            color: #495057; /* Texto por defecto */
+            border-radius: .25rem;
+            margin-bottom: 5px; /* Espacio entre pills */
+            transition: background-color 0.15s ease; /* Transición suave para el hover */
+        }
+        
+        /* HOVER: Efecto al pasar el ratón sobre cualquier elemento del menú */
+        .sidebar .nav-link:hover {
+            background-color: rgba(0, 0, 0, 0.05); /* Fondo gris muy claro */
+            color: #212529;
+        }
+        
     </style>
 </head>
 <body>
     
+    <!-- Navbar superior (Menú Hover y Posicionamiento Ajustado) -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-main-blue fixed-top"> 
         <a class="navbar-brand px-3" href="/"><img src="/static/img/logo.jpg" alt="Logo de la Aplicación" height="30"></a>
         
         <div class="collapse navbar-collapse justify-content-end">
             <ul class="navbar-nav">
+                <!-- Dropdown de Usuario controlado por CSS (Hover) -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" aria-expanded="false">
                         <i class="fas fa-user-circle"></i> {{ user_name }}
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item" href="#">Mi Perfil</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="/logout">Cerrar Sesión (Logout)</a></li>
@@ -47,6 +93,7 @@
         </div>
     </nav>
     
+<!-- Sidebar (Barra Lateral Simplificada con Estilo Nav-Pills) -->
 <div class="sidebar bg-light border-right">
     <div class="p-3"> 
         
@@ -54,65 +101,39 @@
             Navegación
         </div>
         
-        <a href="/" class="list-group-item list-group-item-action bg-light border-0">
-             Inicio
-        </a>
-        <a href="/users/list" class="list-group-item list-group-item-action bg-light border-0">
-             Usuarios
-        </a>
+        <!-- Contenedor Nav-Pills Vertical (Solo enlaces simples) -->
+        <div class="nav flex-column nav-pills" role="tablist" aria-orientation="vertical">
 
-
-        <a href="#ventas-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
-            <div> Postgrado</div>
-            <i class="fas fa-chevron-down small"></i>
-        </a>
-        
-        <div class="collapse" id="ventas-sub">
-            <a href="/ventas/pedidos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Aranceles
+            <!-- Enlaces Simples (sin iconos ni submenús) -->
+            <a class="nav-link" href="/">
+                  Inicio
             </a>
-            <a href="/ventas/clientes" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Alumnos
+            <a class="nav-link" href="/users/list">
+                  Usuarios
             </a>
-            <a href="/ventas/reportes" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Reportes
+            <a class="nav-link" href="/materias">
+                  Materias
             </a>
-        </div>
-        
-
-
-        <a href="#inventario-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
-            <div> Doctorado</div>
-            <i class="fas fa-chevron-down small"></i>
-        </a>
-        
-        <div class="collapse" id="inventario-sub">
-            <a href="/inventario/productos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Alumnos
+            <a class="nav-link" href="/doctorado">
+                  Periodos academicos
             </a>
-            <a href="/inventario/entradas" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Reportes
+            <a class="nav-link" href="/facturacion">
+                  Aranceles
             </a>
-        </div>
-
-
-
-        <a href="#facturacion-sub" data-bs-toggle="collapse" aria-expanded="false" class="list-group-item list-group-item-action bg-light border-0 d-flex justify-content-between">
-            <div> Facturacion</div>
-            <i class="fas fa-chevron-down small"></i>
-        </a>
-        
-        <div class="collapse" id="facturacion-sub">
-            <a href="/inventario/productos" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Alumnos
+            <a class="nav-link" href="/facturacion">
+                  Facturas
             </a>
-            <a href="/inventario/entradas" class="list-group-item list-group-item-action bg-light border-0 ps-5 small">
-                Reportes
+            <a class="nav-link" href="/facturacion">
+                  Inscripciones
             </a>
-        </div>
+            <a class="nav-link" href="/facturacion">
+                  Registros Pagos
+            </a>
+
+        </div> <!-- Fin Contenedor Nav-Pills -->
 
 
-        </div>
+    </div>
 </div>
     
     <div class="content-wrapper">
@@ -122,6 +143,7 @@
         </div>
     </div>
 
+    <!-- Mantenemos el JS de Bootstrap (aunque ya no se usa para el sidebar, es buena práctica) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% block script_footer %}{% endblock %}
 </body>
