@@ -1,6 +1,7 @@
 from core.views import render_template, login_required, generate_csrf_token
 from urllib.parse import parse_qs
-from db import SessionLocal, User, UserType
+from db import SessionLocal
+from users.models import User, UserType
 import bcrypt
 
 

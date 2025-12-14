@@ -4,6 +4,13 @@ from sqlalchemy import pool
 from alembic import context
 import os, sys
 from db import Base, engine
+from users.models import *
+from academic.models import *
+from fees.models import *
+from transactions import *
+
+
+
 sys.path.append(os.getcwd()) 
 
 # this is the Alembic Config object, which provides

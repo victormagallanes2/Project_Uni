@@ -7,7 +7,7 @@ from paste.urlparser import StaticURLParser
 from paste.urlmap import URLMap 
 import re
 from urllib.parse import parse_qs
-from db import SessionLocal, User
+from db import SessionLocal
 import bcrypt
 from paste.urlmap import URLMap 
 from beaker.middleware import SessionMiddleware
