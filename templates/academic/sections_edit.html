@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Sección{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12"><h1 class="mb-4">Editar Sección: {{ section.section_code }}</h1></div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8"> 
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="POST" action="/academic/sections/edit/{{ section.section_id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Materia</label>
+                        <select class="form-select" name="subject_id" required>
+                            {% for subject in subjects %}
+                            <option value="{{ subject.id }}" {% if section.subject_id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Código</label>
+                        <input type="text" class="form-control" name="section_code" value="{{ section.section_code }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Profesor</label>
+                        <select class="form-select" name="professor_user_id" required>
+                            {% for prof in professors %}
+                            <option value="{{ prof.id }}" {% if section.professor_user_id == prof.id %}selected{% endif %}>{{ prof.last_name }}, {{ prof.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Capacidad</label>
+                        <input type="number" class="form-control" name="capacity" value="{{ section.capacity }}" required>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="/academic/sections/list" class="btn btn-secondary me-2">Regresar</a>
+                        <button type="submit" class="btn btn-success">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

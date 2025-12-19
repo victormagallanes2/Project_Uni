@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Período Académico | Mi Proyecto{% endblock %}
+
+{% block content %}
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Crear Nuevo Período Académico</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8"> 
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-primary">Configuración del Calendario</h5>
+                
+                <form method="POST" action="/academic/terms/create">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nombre del Período</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               placeholder="Ej: Semestre 2025-I o Verano 2025" required>
+                        <div class="form-text">Asigna un nombre descriptivo único.</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_date" class="form-label">Fecha de Inicio de Clases</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_date" class="form-label">Fecha de Fin de Clases</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" required>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="card-title text-warning">Rango de Inscripción (Matrícula)</h5>
+                    <p class="text-muted small">Define el período en el que los estudiantes podrán seleccionar sus materias.</p>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="enrollment_start_date" class="form-label">Inicio de Inscripción</label>
+                            <input type="date" class="form-control" id="enrollment_start_date" name="enrollment_start_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="enrollment_end_date" class="form-label">Cierre de Inscripción</label>
+                            <input type="date" class="form-control" id="enrollment_end_date" name="enrollment_end_date" required>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="/academic/list" class="btn btn-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-calendar-plus me-1"></i> Crear Período
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">Reglas de Negocio</h4>
+            <ul class="mb-0">
+                <li>El nombre no debe estar duplicado.</li>
+                <li>Las fechas de inscripción deben ser, preferiblemente, anteriores al inicio de clases.</li>
+                <li>Este período servirá para agrupar las secciones (oferta académica).</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

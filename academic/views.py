@@ -8,7 +8,7 @@ from db import SessionLocal
 from academic.models import AcademicTerm, Subject, Section 
 from users.models import User # Para obtener la lista de profesores
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely 
-
+from academic.models import Subject
 
 # =========================================================================
 # CRUD de Períodos Académicos (AcademicTerm)
@@ -46,7 +46,7 @@ def academic_terms_create(environ):
                 context['error'] = "Error de lógica: El fin de inscripción debe ser anterior al inicio de clases."
             
             if context['error']:
-                html = render_template('academic/academic_terms_create.html', **context)
+                html = render_template('academic/academic_create.html', **context)
                 return "400 Bad Request", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
             new_term = AcademicTerm(name=name, start_date=start_date, end_date=end_date, enrollment_start_date=enroll_start, enrollment_end_date=enroll_end)
@@ -54,17 +54,17 @@ def academic_terms_create(environ):
             db.commit()
             
             session['flash_message'] = f"Período Académico {name} creado con éxito."
-            return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+            return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
 
         else:
-            html = render_template('academic/academic_terms_create.html', **context)
+            html = render_template('academic/academic_create.html', **context)
             return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         db.rollback()
         print(f"Error al crear el Período Académico: {e}")
         context['error'] = "Error de Base de Datos: El nombre del período ya existe o hay un problema con los datos."
-        html = render_template('academic/academic_terms_create.html', **context)
+        html = render_template('academic/academic_create.html', **context)
         return "500 Internal Server Error", [('Content-type', 'text/html')], [html.encode('utf-8')]
         
     finally:
@@ -79,7 +79,7 @@ def academic_terms_list(environ):
     
     try:
         terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
-        html = render_template('academic/academic_terms_list.html', terms=terms, flash_message=flash_message)
+        html = render_template('academic/academic_list.html', terms=terms, flash_message=flash_message)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
     finally:
         db.close()
@@ -98,7 +98,7 @@ def academic_terms_edit(environ, term_id):
         term = db.query(AcademicTerm).filter(AcademicTerm.term_id == term_id).first()
         if not term:
             session['flash_message'] = "Error: Período Académico no encontrado."
-            return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+            return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
 
         context = {'csrf_token': csrf_token, 'error': None, 'term': term}
 
@@ -121,7 +121,7 @@ def academic_terms_edit(environ, term_id):
                 context['error'] = "Error: El fin de inscripción debe ser anterior al inicio de clases."
             
             if context['error']:
-                html = render_template('academic/academic_terms_edit.html', **context)
+                html = render_template('academic/academic_edit.html', **context)
                 return "400 Bad Request", [('Content-type', 'text/html')], [html.encode('utf-8')]
             
             term.name = name
@@ -133,17 +133,17 @@ def academic_terms_edit(environ, term_id):
             db.commit()
             
             session['flash_message'] = f"Período Académico {name} actualizado con éxito."
-            return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+            return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
 
         else:
-            html = render_template('academic/academic_terms_edit.html', **context)
+            html = render_template('academic/academic_edit.html', **context)
             return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         db.rollback()
         print(f"Error al guardar los cambios del período: {e}")
         context['error'] = "Error de Base de Datos. Asegúrate de que el nombre del período no esté duplicado."
-        html = render_template('academic/academic_terms_edit.html', **context)
+        html = render_template('academic/academic_edit.html', **context)
         return "500 Internal Server Error", [('Content-type', 'text/html')], [html.encode('utf-8')]
         
     finally:
@@ -164,7 +164,7 @@ def academic_terms_delete(environ, term_id):
         
         if not term:
             session['flash_message'] = "Error: Período Académico no encontrado."
-            return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+            return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
 
         if method == 'POST':
             # (Validación CSRF)
@@ -173,10 +173,10 @@ def academic_terms_delete(environ, term_id):
             db.commit()
             
             session['flash_message'] = f"Período Académico {term.name} eliminado con éxito."
-            return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+            return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
         
         else:
-            html = render_template('academic/academic_terms_confirm_delete.html', term=term, csrf_token=csrf_token)
+            html = render_template('academic/academic_confirm_delete.html', term=term, csrf_token=csrf_token)
             return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
             
     except Exception as e:
@@ -188,7 +188,7 @@ def academic_terms_delete(environ, term_id):
             flash_msg = "Error interno al intentar eliminar el período."
 
         session['flash_message'] = flash_msg
-        return '302 Found', [('Location', '/academic/terms/list')], [b'Redirecting...']
+        return '302 Found', [('Location', '/academic/list')], [b'Redirecting...']
         
     finally:
         db.close()
@@ -388,3 +388,74 @@ def sections_delete(environ, section_id):
         
     finally:
         db.close()
+
+
+@login_required
+def subjects_list(environ):
+    db = SessionLocal()
+    subjects = db.query(Subject).order_by(Subject.name).all()
+    html = render_template('academic/subjects_list.html', subjects=subjects)
+    db.close()
+    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+@login_required
+def subjects_create(environ):
+    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    if method == 'POST':
+        # ... lógica de guardado similar a los otros módulos ...
+        # (Capturar name y code del formulario)
+        pass 
+    html = render_template('academic/subjects_create.html')
+    db.close()
+    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+
+def subjects_edit(environ, subject_id):
+    db = SessionLocal()
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    
+    if not subject:
+        db.close()
+        return "404 NOT FOUND", [('Content-type', 'text/html')], [b"Materia no encontrada"]
+
+    method = environ.get('REQUEST_METHOD', 'GET')
+    
+    if method == 'POST':
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            request_body = environ['wsgi.input'].read(request_body_size).decode('utf-8')
+            params = parse_qs(request_body)
+            
+            subject.name = params.get('name', [subject.name])[0]
+            subject.code = params.get('code', [subject.code])[0]
+            
+            db.commit()
+            # Redirigir a la lista con un mensaje (puedes usar sesiones para mensajes flash)
+            return "302 Found", [('Location', '/academic/subjects/list')], []
+        except Exception as e:
+            db.rollback()
+            html = render_template('academic/subjects_edit.html', subject=subject, error=str(e))
+    else:
+        html = render_template('academic/subjects_edit.html', subject=subject)
+    
+    db.close()
+    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+def subjects_delete(environ, subject_id):
+    if environ.get('REQUEST_METHOD') != 'POST':
+        return "405 Method Not Allowed", [('Content-type', 'text/plain')], [b"Metodo no permitido"]
+    
+    db = SessionLocal()
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    
+    if subject:
+        try:
+            db.delete(subject)
+            db.commit()
+        except Exception:
+            db.rollback()
+            # Aquí podrías manejar si la materia tiene secciones amarradas
+    
+    db.close()
+    return "302 Found", [('Location', '/academic/subjects/list')], []

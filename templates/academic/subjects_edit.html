@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Materia | {{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Editar Materia: {{ subject.name }}</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6"> 
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="POST" action="/academic/subjects/edit/{{ subject.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Código de la Materia</label>
+                        <input type="text" class="form-control" name="code" value="{{ subject.code }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de la Asignatura</label>
+                        <input type="text" class="form-control" name="name" value="{{ subject.name }}" required>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="/academic/subjects/list" class="btn btn-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Actualizar Materia
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

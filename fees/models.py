@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, DateTime
 from sqlalchemy.orm import relationship
+from transactions.models import Enrollment
 from db import Base
 
 
