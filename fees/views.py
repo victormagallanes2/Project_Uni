@@ -7,7 +7,7 @@ from db import SessionLocal
 from fees.models import FeeConcept, FeeSchedule 
 from academic.models import Program, AcademicTerm # Necesitas estos para FeeSchedule
 from core.views import render_template, login_required, generate_csrf_token
-
+from sqlalchemy.orm import joinedload
 
 # =========================================================================
 # CRUD de Conceptos de Aranceles (FeeConcept)
@@ -236,18 +236,29 @@ def fee_schedules_create(environ):
         db.close()
         
 # R: Read (Listar)
+
+
 @login_required
 def fee_schedules_list(environ):
     db = SessionLocal()
-    session = environ['beaker.session']
+    session = environ.get('beaker.session')
     flash_message = session.pop('flash_message', None)
     
     try:
-        # Consulta que trae todas las tarifas e incluye los datos relacionados
-        schedules = db.query(FeeSchedule).join(FeeConcept).join(Program).join(AcademicTerm).all()
+        # Usamos joinedload para traer los objetos relacionados en una sola consulta limpia
+        schedules = db.query(FeeSchedule).options(
+            joinedload(FeeSchedule.concept),
+            joinedload(FeeSchedule.program),
+            joinedload(FeeSchedule.term)
+        ).all()
         
-        html = render_template('fees/fee_schedules_list.html', schedules=schedules, flash_message=flash_message)
+        html = render_template('fees/fee_schedules_list.html', 
+                               schedules=schedules, 
+                               flash_message=flash_message)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+    except Exception as e:
+        print(f"Error en fee_schedules_list: {e}")
+        return "500 Internal Server Error", [('Content-type', 'text/plain')], [b"Error al cargar tarifas"]
     finally:
         db.close()
 

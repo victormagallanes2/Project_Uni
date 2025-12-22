@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Programas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Programas Académicos</h1>
+        <a href="/academic/programs/create" class="btn btn-primary mb-3">
+            <i class="fas fa-university me-1"></i> Nuevo Programa
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre del Programa</th>
+                            <th>Nivel</th>
+                            <th class="text-center">Créditos Totales</th>
+                            <th class="text-center">Materias</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for program in programs %}
+                        <tr>
+                            <td><strong>{{ program.name }}</strong></td>
+                            <td><span class="badge bg-info text-dark">{{ program.level }}</span></td>
+                            <td class="text-center">{{ program.total_credits }}</td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill bg-secondary">{{ program.subjects|length }}</span>
+                            </td>
+                            <td>
+                                <a href="/academic/programs/edit/{{ program.program_id }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="POST" action="/academic/programs/delete/{{ program.program_id }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar programa? Esto podría afectar a las materias asociadas.')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted">No hay programas registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

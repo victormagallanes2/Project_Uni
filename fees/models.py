@@ -14,11 +14,17 @@ class FeeSchedule(Base):
     __tablename__ = 'fee_schedules'
     schedule_id = Column(Integer, primary_key=True)
     concept_id = Column(Integer, ForeignKey('fee_concepts.concept_id'), nullable=False)
-    program_level = Column(String(50))
-    term_id = Column(Integer, ForeignKey('academic_terms.term_id'))
-    value_bs = Column(DECIMAL(12, 2), nullable=False) # Valor en Bolívares
     
+    # CAMBIO AQUÍ: Conectamos con la tabla programs
+    program_id = Column(Integer, ForeignKey('programs.program_id'), nullable=False)
+    term_id = Column(Integer, ForeignKey('academic_terms.term_id'))
+    
+    value_bs = Column(DECIMAL(12, 2), nullable=False)
+    
+    # RELACIONES (Para que schedule.program.name funcione en el HTML)
     concept = relationship("FeeConcept")
+    program = relationship("Program")
+    term = relationship("AcademicTerm")
 
 class Payment(Base):
     __tablename__ = 'payments'

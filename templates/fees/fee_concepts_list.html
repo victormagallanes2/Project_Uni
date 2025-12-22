@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Conceptos de Aranceles{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Gestión de Conceptos de Pago</h1>
+        <a href="/fees/concepts/create" class="btn btn-primary mb-3">
+            <i class="fas fa-plus me-1"></i> Nuevo Concepto
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre del Concepto</th>
+                            <th>Categoría</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for concept in concepts %}
+                        <tr>
+                            <td><strong>{{ concept.name }}</strong></td>
+                            <td><span class="badge bg-secondary">{{ concept.category or 'General' }}</span></td>
+                            <td>
+                                <a href="/fees/concepts/edit/{{ concept.concept_id }}" class="btn btn-sm btn-info me-1">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                <form method="POST" action="/fees/concepts/delete/{{ concept.concept_id }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este concepto?')">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted">No hay conceptos registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

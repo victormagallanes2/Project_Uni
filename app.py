@@ -9,7 +9,8 @@ from users.views import users_list, users_create, users_edit, users_delete
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
     sections_list, sections_create, sections_edit, sections_delete,
-    subjects_list, subjects_create, subjects_edit, subjects_delete
+    subjects_list, subjects_create, subjects_edit, subjects_delete,
+    programs_list, programs_create, programs_edit, programs_delete
 )
 from fees.views import (
     fee_concepts_list, fee_concepts_create, fee_concepts_edit, fee_concepts_delete,
@@ -61,6 +62,9 @@ def app(environ, start_response):
     pay_verify_match = re.match(r'^/payments/verify/(\d+)$', path)     # Recibe payment_id
     enroll_choose_match = re.match(r'^/enrollment/choose/(\d+)$', path) # Recibe student_user_id
     enroll_list_match = re.match(r'^/enrollment/list/(\d+)$', path)   # Recibe student_user_id
+
+    prog_edit_match = re.match(r'^/academic/programs/edit/(\d+)$', path)
+    prog_delete_match = re.match(r'^/academic/programs/delete/(\d+)$', path)
 
     # =========================================================================
     # LÓGICA DE ENRUTAMIENTO (Routing)
@@ -139,6 +143,20 @@ def app(environ, start_response):
         status, headers, body_content = enrollment_list_student(environ, int(enroll_list_match.group(1)))
     elif path == '/enrollment/admin/list':
         status, headers, body_content = enrollment_list_admin(environ)
+
+    # --- RUTAS DE PROGRAMAS ACADÉMICOS ---
+    elif path == '/academic/programs/list':
+        status, headers, body_content = programs_list(environ)
+
+    elif path == '/academic/programs/create':
+        status, headers, body_content = programs_create(environ)
+
+    elif prog_edit_match:
+        # Pasamos el ID capturado por el regex a la función
+        status, headers, body_content = programs_edit(environ, int(prog_edit_match.group(1)))
+
+    elif prog_delete_match:
+        status, headers, body_content = programs_delete(environ, int(prog_delete_match.group(1)))
 
     # --- RUTAS HOME & AUTH ---
     elif path == '/' or path == '/home':

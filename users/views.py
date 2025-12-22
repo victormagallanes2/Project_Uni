@@ -5,7 +5,7 @@ from users.models import User, UserType
 import bcrypt
 
 
-@login_required
+#@login_required
 def users_create(environ):
     method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()

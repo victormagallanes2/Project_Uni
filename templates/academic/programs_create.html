@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Programa{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <h1 class="mb-4">Nuevo Programa Académico</h1>
+        <div class="card shadow">
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Programa</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ej: Doctorado en Ciencias Administrativas" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nivel Académico</label>
+                        <select name="level" class="form-select" required>
+                            <option value="Postgrado">Postgrado</option>
+                            <option value="Maestría">Maestría</option>
+                            <option value="Doctorado">Doctorado</option>
+                            <option value="Diplomado">Diplomado</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Total de Créditos</label>
+                        <input type="number" name="total_credits" class="form-control" placeholder="0">
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Guardar Programa</button>
+                        <a href="/academic/programs/list" class="btn btn-light">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

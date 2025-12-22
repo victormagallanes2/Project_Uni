@@ -9,6 +9,8 @@ from academic.models import AcademicTerm, Subject, Section
 from users.models import User # Para obtener la lista de profesores
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely 
 from academic.models import Subject
+from sqlalchemy.orm import joinedload
+from academic.models import Program
 
 # =========================================================================
 # CRUD de Períodos Académicos (AcademicTerm)
@@ -459,3 +461,131 @@ def subjects_delete(environ, subject_id):
     
     db.close()
     return "302 Found", [('Location', '/academic/subjects/list')], []
+
+
+@login_required
+def programs_list(environ):
+    """Lista todos los programas registrados."""
+    db = SessionLocal()
+    session = environ['beaker.session']
+    flash_message = session.pop('flash_message', None)
+    
+    try:
+        # Usamos joinedload para traer las materias y poder contarlas en el HTML
+        programs = db.query(Program).options(joinedload(Program.subjects)).all()
+        
+        html = render_template('academic/programs_list.html', 
+                               programs=programs, 
+                               flash_message=flash_message)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+    finally:
+        db.close()
+
+@login_required
+def programs_create(environ):
+    """Crea un nuevo programa (Carrera/Postgrado)."""
+    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session: 
+        session['csrf_token'] = generate_csrf_token()
+    
+    context = {'csrf_token': session['csrf_token'], 'error': None}
+
+    if method == 'POST':
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
+            
+            name = form_data.get('name', [''])[0].strip()
+            level = form_data.get('level', [''])[0].strip()
+            total_credits = form_data.get('total_credits', ['0'])[0].strip()
+
+            if not name or not level:
+                context['error'] = "El nombre y el nivel son obligatorios."
+                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('academic/programs_create.html', **context).encode('utf-8')]
+
+            new_program = Program(
+                name=name,
+                level=level,
+                total_credits=int(total_credits) if total_credits.isdigit() else 0
+            )
+            
+            db.add(new_program)
+            db.commit()
+            
+            session['flash_message'] = f"Programa '{name}' creado exitosamente."
+            return '302 Found', [('Location', '/academic/programs/list')], [b'Redirecting...']
+            
+        except Exception as e:
+            db.rollback()
+            context['error'] = f"Error al guardar: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/programs_create.html', **context).encode('utf-8')]
+        finally:
+            db.close()
+    else:
+        html = render_template('academic/programs_create.html', **context)
+        db.close()
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+@login_required
+def programs_edit(environ, program_id):
+    """Edita un programa existente."""
+    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    program = db.query(Program).filter(Program.program_id == program_id).first()
+    if not program:
+        return "404 Not Found", [('Content-type', 'text/plain')], [b"Programa no encontrado"]
+
+    context = {'csrf_token': session.get('csrf_token'), 'program': program, 'error': None}
+
+    if method == 'POST':
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
+            
+            program.name = form_data.get('name', [program.name])[0].strip()
+            program.level = form_data.get('level', [program.level])[0].strip()
+            credits_str = form_data.get('total_credits', ['0'])[0].strip()
+            program.total_credits = int(credits_str) if credits_str.isdigit() else 0
+
+            db.commit()
+            session['flash_message'] = "Programa actualizado correctamente."
+            return '302 Found', [('Location', '/academic/programs/list')], [b'Redirecting...']
+        except Exception as e:
+            db.rollback()
+            context['error'] = f"Error: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/programs_edit.html', **context).encode('utf-8')]
+        finally:
+            db.close()
+    else:
+        html = render_template('academic/programs_edit.html', **context)
+        db.close()
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+@login_required
+def programs_delete(environ, program_id):
+    """Elimina un programa si no tiene dependencias críticas (o según lógica de negocio)."""
+    if environ.get('REQUEST_METHOD') != 'POST':
+        return "405 Method Not Allowed", [('Content-type', 'text/plain')], [b"Metodo no permitido"]
+        
+    db = SessionLocal()
+    session = environ['beaker.session']
+    try:
+        program = db.query(Program).filter(Program.program_id == program_id).first()
+        if program:
+            # Nota: Si hay materias asociadas, SQLAlchemy lanzará un error de integridad
+            # a menos que tengas configurado el cascade delete.
+            db.delete(program)
+            db.commit()
+            session['flash_message'] = "Programa eliminado."
+        return '302 Found', [('Location', '/academic/programs/list')], [b'Redirecting...']
+    except Exception as e:
+        db.rollback()
+        session['flash_message'] = "No se puede eliminar: el programa tiene materias o tarifas asociadas."
+        return '302 Found', [('Location', '/academic/programs/list')], [b'Redirecting...']
+    finally:
+        db.close()

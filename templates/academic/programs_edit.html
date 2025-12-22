@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Programa{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <h1 class="mb-4">Editar Programa</h1>
+        <div class="card shadow border-primary">
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Programa</label>
+                        <input type="text" name="name" class="form-control" value="{{ program.name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nivel Académico</label>
+                        <select name="level" class="form-select" required>
+                            <option value="Postgrado" {% if program.level == 'Postgrado' %}selected{% endif %}>Postgrado</option>
+                            <option value="Maestría" {% if program.level == 'Maestría' %}selected{% endif %}>Maestría</option>
+                            <option value="Doctorado" {% if program.level == 'Doctorado' %}selected{% endif %}>Doctorado</option>
+                            <option value="Diplomado" {% if program.level == 'Diplomado' %}selected{% endif %}>Diplomado</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Total de Créditos</label>
+                        <input type="number" name="total_credits" class="form-control" value="{{ program.total_credits }}">
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-success">Actualizar Cambios</button>
+                        <a href="/academic/programs/list" class="btn btn-light">Volver</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

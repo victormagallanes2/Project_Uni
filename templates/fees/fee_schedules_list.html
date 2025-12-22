@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Tarifas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Configuración de Precios (Tarifas)</h1>
+        <a href="/fees/schedules/create" class="btn btn-primary mb-3">
+            <i class="fas fa-dollar-sign me-1"></i> Asignar Nueva Tarifa
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Programa</th>
+                            <th>Monto</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                        <tbody>
+                            {% for schedule in schedules %}
+                            <tr>
+                                <td>{{ schedule.concept.name }}</td>
+                                <td>{{ schedule.program.name }} <br><small class="text-muted">{{ schedule.program.level }}</small></td>
+                                <td>{{ schedule.term.name if schedule.term else 'N/A' }}</td>
+                                <td><strong>Bs. {{ "%.2f"|format(schedule.value_bs) }}</strong></td>
+                                <td>
+                                    <a href="/fees/schedules/edit/{{ schedule.schedule_id }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
