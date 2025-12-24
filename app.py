@@ -5,7 +5,6 @@ from home.views import home
 from authentication.views import login, logout
 from users.views import users_list, users_create, users_edit, users_delete
 
-# --- NUEVAS IMPORTACIONES ---
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
     sections_list, sections_create, sections_edit, sections_delete,

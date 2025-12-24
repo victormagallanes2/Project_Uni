@@ -400,49 +400,110 @@ def subjects_list(environ):
     db.close()
     return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
+
 @login_required
 def subjects_create(environ):
     method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
-    if method == 'POST':
-        # ... lógica de guardado similar a los otros módulos ...
-        # (Capturar name y code del formulario)
-        pass 
-    html = render_template('academic/subjects_create.html')
-    db.close()
-    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
-
-
-def subjects_edit(environ, subject_id):
-    db = SessionLocal()
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    session = environ['beaker.session']
     
-    if not subject:
-        db.close()
-        return "404 NOT FOUND", [('Content-type', 'text/html')], [b"Materia no encontrada"]
+    if 'csrf_token' not in session: 
+        session['csrf_token'] = generate_csrf_token()
 
-    method = environ.get('REQUEST_METHOD', 'GET')
-    
+    programs = db.query(Program).all()
+    context = {'csrf_token': session['csrf_token'], 'programs': programs, 'error': None}
+
     if method == 'POST':
         try:
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            request_body = environ['wsgi.input'].read(request_body_size).decode('utf-8')
-            params = parse_qs(request_body)
+            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
             
-            subject.name = params.get('name', [subject.name])[0]
-            subject.code = params.get('code', [subject.code])[0]
+            # Capturamos todos los campos requeridos por tu modelo
+            name = form_data.get('name', [''])[0].strip()
+            code = form_data.get('code', [''])[0].strip()
+            program_id = form_data.get('program_id', [''])[0].strip()
+            credits_str = form_data.get('credits', [''])[0].strip() # <--- NUEVO
+
+            # Validación de campos vacíos
+            if not all([name, code, program_id, credits_str]):
+                context['error'] = "Todos los campos son obligatorios (Programa, Código, Nombre y Créditos)."
+                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('academic/subjects_create.html', **context).encode('utf-8')]
+
+            # Creamos el objeto con la estructura exacta de tu modelo
+            new_subject = Subject(
+                name=name,
+                code=code,
+                program_id=int(program_id),
+                credits=int(credits_str) # <--- AHORA SÍ SE GUARDA
+            )
             
+            db.add(new_subject)
             db.commit()
-            # Redirigir a la lista con un mensaje (puedes usar sesiones para mensajes flash)
-            return "302 Found", [('Location', '/academic/subjects/list')], []
+            
+            session['flash_message'] = f"Materia '{name}' registrada correctamente."
+            return '302 Found', [('Location', '/academic/subjects/list')], [b'Redirecting...']
+            
         except Exception as e:
             db.rollback()
-            html = render_template('academic/subjects_edit.html', subject=subject, error=str(e))
+            context['error'] = f"Error de base de datos: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/subjects_create.html', **context).encode('utf-8')]
+        finally:
+            db.close()
     else:
-        html = render_template('academic/subjects_edit.html', subject=subject)
+        html = render_template('academic/subjects_create.html', **context)
+        db.close()
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+
+@login_required
+def subjects_edit(environ, subject_id):
+    """Edita una materia existente."""
+    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    session = environ['beaker.session']
     
-    db.close()
-    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+    # 1. Buscar la materia y cargar sus relaciones
+    subject = db.query(Subject).filter(Subject.subject_id == subject_id).first()
+    if not subject:
+        return "404 Not Found", [('Content-type', 'text/plain')], [b"Materia no encontrada"]
+
+    # 2. Cargar programas para el desplegable del formulario
+    programs = db.query(Program).all()
+    
+    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
+    
+    context = {
+        'csrf_token': session['csrf_token'],
+        'subject': subject,
+        'programs': programs,
+        'error': None
+    }
+
+    if method == 'POST':
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
+            
+            # Actualizar campos del modelo
+            subject.name = form_data.get('name', [subject.name])[0].strip()
+            subject.code = form_data.get('code', [subject.code])[0].strip()
+            subject.program_id = int(form_data.get('program_id', [subject.program_id])[0])
+            subject.credits = int(form_data.get('credits', [subject.credits])[0])
+
+            db.commit()
+            session['flash_message'] = f"Materia '{subject.name}' actualizada correctamente."
+            return '302 Found', [('Location', '/academic/subjects/list')], [b'Redirecting...']
+            
+        except Exception as e:
+            db.rollback()
+            context['error'] = f"Error al actualizar: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/subjects_edit.html', **context).encode('utf-8')]
+        finally:
+            db.close()
+    else:
+        html = render_template('academic/subjects_edit.html', **context)
+        db.close()
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
 def subjects_delete(environ, subject_id):
     if environ.get('REQUEST_METHOD') != 'POST':

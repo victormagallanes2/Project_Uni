@@ -11,35 +11,35 @@
     <div class="col-lg-7"> 
         <div class="card shadow-sm">
             <div class="card-body">
-                <form method="POST" action="/fees/schedules/create">
+                <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    
+
                     <div class="mb-3">
-                        <label class="form-label">Seleccionar Concepto</label>
-                        <select class="form-select" name="fee_concept_id" required>
-                            {% for c in concepts %}<option value="{{ c.concept_id }}">{{ c.name }}</option>{% endfor %}
+                        <label class="form-label fw-bold">Concepto de Pago</label>
+                        <select name="concept_id" class="form-select" required>
+                            <option value="" disabled selected>Seleccione un concepto...</option>
+                            {% for concept in concepts %}
+                            <option value="{{ concept.concept_id }}">{{ concept.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Aplicar a Programa</label>
-                        <select class="form-select" name="program_id" required>
-                            {% for p in programs %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+                        <label class="form-label fw-bold">Programa / Carrera</label>
+                        <select name="program_id" class="form-select" required>
+                            <option value="" disabled selected>Seleccione el programa...</option>
+                            {% for prog in programs %}
+                            <option value="{{ prog.program_id }}">{{ prog.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Monto (Precio)</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" step="0.01" class="form-control" name="amount" required>
-                        </div>
+                        <label class="form-label fw-bold">Monto en Bolívares (Bs.)</label>
+                        <input type="number" step="0.01" name="value_bs" class="form-control" placeholder="0.00" required>
                     </div>
 
-                    <div class="d-flex justify-content-end mt-4">
-                        <a href="/fees/schedules/list" class="btn btn-secondary me-2">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">Fijar Precio</button>
-                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar Tarifa</button>
                 </form>
             </div>
         </div>

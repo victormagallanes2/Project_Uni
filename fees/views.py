@@ -178,62 +178,77 @@ def fee_concepts_delete(environ, concept_id):
 # C: Create (Crear)
 @login_required
 def fee_schedules_create(environ):
+    """Crea una nueva tarifa vinculada a un concepto y un programa."""
     method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
-    csrf_token = session['csrf_token']
-    
-    # Cargar datos para los SELECT
-    programs = db.query(Program).order_by(Program.name).all() 
+    # Asegurar token CSRF
+    if 'csrf_token' not in session: 
+        session['csrf_token'] = generate_csrf_token()
+
+    # 1. Cargar datos para los selects del formulario
     concepts = db.query(FeeConcept).order_by(FeeConcept.name).all()
-    terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all() 
-    
-    context = {'csrf_token': csrf_token, 'error': None, 'form_data': {}, 'programs': programs, 'concepts': concepts, 'terms': terms}
+    programs = db.query(Program).order_by(Program.name).all()
+    terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
 
-    try:
-        if method == 'POST':
+    context = {
+        'csrf_token': session['csrf_token'],
+        'concepts': concepts,
+        'programs': programs,
+        'terms': terms,
+        'error': None,
+        'form_data': {}
+    }
+
+    if method == 'POST':
+        try:
+            # Leer el cuerpo de la petición
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
-            context['form_data'] = {k: v[0] for k, v in form_data.items() if v}
-            # (Validación CSRF)
+            request_body = environ['wsgi.input'].read(request_body_size).decode('utf-8')
+            form_data = parse_qs(request_body)
             
-            concept_id = form_data.get('fee_concept_id', [''])[0]
-            program_id = form_data.get('program_id', [''])[0]
-            term_id = form_data.get('term_id', [''])[0]
-            amount_str = form_data.get('amount', [''])[0].strip()
-            
-            if not all([concept_id, program_id, term_id, amount_str]):
-                context['error'] = "Todos los campos son obligatorios."
-            
-            try:
-                amount = float(amount_str)
-                if amount <= 0: context['error'] = "El monto debe ser un número positivo."
-            except ValueError:
-                context['error'] = "El monto debe ser un número válido."
+            # Guardar datos en contexto por si hay que re-renderizar por error
+            context['form_data'] = {k: v[0] for k, v in form_data.items()}
 
-            if context['error']:
+            # Capturar valores del formulario
+            concept_id = form_data.get('concept_id', [''])[0].strip()
+            program_id = form_data.get('program_id', [''])[0].strip()
+            term_id = form_data.get('term_id', [''])[0].strip() # Opcional
+            value_bs = form_data.get('value_bs', [''])[0].strip()
+
+            # VALIDACIÓN CRÍTICA: Aquí es donde suele fallar si el HTML no envía el 'name' correcto
+            if not concept_id or not program_id or not value_bs:
+                context['error'] = "Error: Debe seleccionar el Concepto, el Programa y el Monto."
                 return "400 Bad Request", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_create.html', **context).encode('utf-8')]
 
-            new_schedule = FeeSchedule(fee_concept_id=int(concept_id), program_id=int(program_id), academic_term_id=int(term_id), amount=amount)
+            # Crear la instancia del modelo
+            new_schedule = FeeSchedule(
+                concept_id=int(concept_id),
+                program_id=int(program_id),
+                value_bs=float(value_bs),
+                # El term_id puede ser opcional o nulo según tu modelo
+                term_id=int(term_id) if term_id else None
+            )
+            
             db.add(new_schedule)
             db.commit()
             
-            session['flash_message'] = "Tarifa creada con éxito."
+            session['flash_message'] = "Tarifa configurada exitosamente."
             return '302 Found', [('Location', '/fees/schedules/list')], [b'Redirecting...']
-
-        else:
-            return "200 OK", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_create.html', **context).encode('utf-8')]
-
-    except Exception as e:
-        db.rollback()
-        print(f"Error al crear la Tarifa: {e}")
-        context['error'] = "Error de Base de Datos: Ya existe una tarifa con esta combinación (Concepto, Programa y Período)."
-        return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_create.html', **context).encode('utf-8')]
-        
-    finally:
+            
+        except Exception as e:
+            db.rollback()
+            print(f"Error en fee_schedules_create: {e}")
+            context['error'] = f"Error interno: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_create.html', **context).encode('utf-8')]
+        finally:
+            db.close()
+    else:
+        # Método GET: Mostrar formulario vacío
+        html = render_template('fees/fee_schedules_create.html', **context)
         db.close()
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
         
 # R: Read (Listar)
 

@@ -1,48 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Lista de Tarifas{% endblock %}
+{% block title %}Configuración de Tarifas{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">Configuración de Precios (Tarifas)</h1>
+        <h1 class="mb-4">Estructura de Costos / Tarifas</h1>
         <a href="/fees/schedules/create" class="btn btn-primary mb-3">
-            <i class="fas fa-dollar-sign me-1"></i> Asignar Nueva Tarifa
+            <i class="fas fa-money-bill-wave me-1"></i> Nueva Tarifa
         </a>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Concepto</th>
-                            <th>Programa</th>
-                            <th>Monto</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                        <tbody>
-                            {% for schedule in schedules %}
-                            <tr>
-                                <td>{{ schedule.concept.name }}</td>
-                                <td>{{ schedule.program.name }} <br><small class="text-muted">{{ schedule.program.level }}</small></td>
-                                <td>{{ schedule.term.name if schedule.term else 'N/A' }}</td>
-                                <td><strong>Bs. {{ "%.2f"|format(schedule.value_bs) }}</strong></td>
-                                <td>
-                                    <a href="/fees/schedules/edit/{{ schedule.schedule_id }}" class="btn btn-sm btn-info">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                </table>
-            </div>
-        </div>
+{% if flash_message %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    {{ flash_message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Concepto</th>
+                    <th>Programa</th>
+                    <th>Período</th>
+                    <th class="text-end">Monto (Bs.)</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schedule in schedules %}
+                <tr>
+                    <td>
+                        <strong>{{ schedule.concept.name }}</strong>
+                    </td>
+                    <td>{{ schedule.program.name }}</td>
+                    <td>
+                        {% if schedule.term %}
+                            {{ schedule.term.name }}
+                        {% else %}
+                            <span class="text-muted small">General</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {{ "%.2f"|format(schedule.value_bs) }}
+                    </td>
+                    <td class="text-center">
+                        <a href="/fees/schedules/edit/{{ schedule.schedule_id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="/fees/schedules/delete/{{ schedule.schedule_id }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar?')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">No hay tarifas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

@@ -1,52 +1,68 @@
 {% extends "base.html" %}
 
-{% block title %}Lista de Materias{% endblock %}
+{% block title %}Gestión de Materias{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">Gestión de Materias</h1>
+        <h1 class="mb-4">Materias / Asignaturas</h1>
         <a href="/academic/subjects/create" class="btn btn-primary mb-3">
-            <i class="fas fa-plus me-1"></i> Nueva Materia
+            <i class="fas fa-book me-1"></i> Nueva Materia
         </a>
     </div>
 </div>
+
+{% if flash_message %}
+<div class="alert alert-success">{{ flash_message }}</div>
+{% endif %}
 
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
             <div class="card-body">
-                <table class="table table-striped table-hover">
-                    <thead>
+                <table class="table table-hover">
+                    <thead class="table-light">
                         <tr>
-                            <th>ID</th>
                             <th>Código</th>
-                            <th>Nombre de la Asignatura</th>
+                            <th>Nombre de la Materia</th>
+                            <th>Programa</th>
+                            <th class="text-center">Créditos</th>
+                            <th class="text-center">Secciones</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for subject in subjects %}
                         <tr>
-                            <td>{{ subject.id }}</td>
-                            <td><span class="badge bg-light text-dark border">{{ subject.code }}</span></td>
-                            <td>{{ subject.name }}</td>
+                            <td><code class="fw-bold">{{ subject.code }}</code></td>
+                            <td><strong>{{ subject.name }}</strong></td>
                             <td>
-                                <a href="/academic/subjects/edit/{{ subject.id }}" class="btn btn-sm btn-info me-1">
-                                    <i class="fas fa-edit"></i> Editar
+                                {{ subject.program.name }} 
+                                <br><small class="text-muted">{{ subject.program.level }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info text-dark">{{ subject.credits }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill bg-secondary">
+                                    {{ subject.sections|length }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="/academic/subjects/edit/{{ subject.subject_id }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
                                 </a>
-                                <form method="POST" action="/academic/subjects/delete/{{ subject.id }}" style="display:inline;">
+                                <form method="POST" action="/academic/subjects/delete/{{ subject.subject_id }}" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="btn btn-sm btn-danger" 
-                                            onclick="return confirm('¿Eliminar la materia {{ subject.name }}?');">
-                                        <i class="fas fa-trash-alt"></i> Eliminar
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar materia?')">
+                                        <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted">No hay materias registradas.</td>
+                            <td colspan="6" class="text-center text-muted">No hay materias registradas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
