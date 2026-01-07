@@ -8,20 +8,14 @@ class FeeConcept(Base):
     __tablename__ = 'fee_concepts'
     concept_id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True) # Ej: INSCRIPCIONES EN PROGRAMAS CONDUNCENTES A GRADO ACADÉMICO
-    category = Column(String(50)) # ELiminar
     
 class FeeSchedule(Base):
     __tablename__ = 'fee_schedules'
     schedule_id = Column(Integer, primary_key=True)
     concept_id = Column(Integer, ForeignKey('fee_concepts.concept_id'), nullable=False)
-    
-
     program_id = Column(Integer, ForeignKey('programs.program_id'), nullable=False)
     term_id = Column(Integer, ForeignKey('academic_terms.term_id'))
-    
     value_bs = Column(DECIMAL(12, 2), nullable=False)
-    
-
     concept = relationship("FeeConcept")
     program = relationship("Program")
     term = relationship("AcademicTerm")

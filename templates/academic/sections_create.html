@@ -17,8 +17,9 @@
                     <div class="mb-3">
                         <label class="form-label">Materia</label>
                         <select class="form-select" name="subject_id" required>
+                            <option value="" disabled selected>Seleccione una materia...</option>
                             {% for subject in subjects %}
-                            <option value="{{ subject.id }}">{{ subject.name }}</option>
+                            <option value="{{ subject.subject_id }}">{{ subject.name }}</option>
                             {% endfor %}
                         </select>
                     </div>

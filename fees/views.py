@@ -32,7 +32,6 @@ def fee_concepts_create(environ):
             # (Validación CSRF)
             
             name = form_data.get('name', [''])[0].strip()
-            category = form_data.get('category', [''])[0].strip() 
             
             if not name:
                 context['error'] = "El nombre del concepto es obligatorio."
@@ -40,7 +39,7 @@ def fee_concepts_create(environ):
             if context['error']:
                 return "400 Bad Request", [('Content-type', 'text/html')], [render_template('fees/fee_concepts_create.html', **context).encode('utf-8')]
 
-            new_concept = FeeConcept(name=name, category=category or None)
+            new_concept = FeeConcept(name=name)
             db.add(new_concept)
             db.commit()
             
@@ -98,7 +97,6 @@ def fee_concepts_edit(environ, concept_id):
             # (Validación CSRF)
             
             name = form_data.get('name', [concept.name])[0].strip()
-            category = form_data.get('category', [concept.category or ''])[0].strip() 
             
             if not name:
                 context['error'] = "El nombre del concepto es obligatorio."
@@ -107,7 +105,6 @@ def fee_concepts_edit(environ, concept_id):
                 return "400 Bad Request", [('Content-type', 'text/html')], [render_template('fees/fee_concepts_edit.html', **context).encode('utf-8')]
 
             concept.name = name
-            concept.category = category or None
             
             db.commit()
             
@@ -284,48 +281,46 @@ def fee_schedules_edit(environ, schedule_id):
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
-    csrf_token = session['csrf_token']
-
-    programs = db.query(Program).order_by(Program.name).all() 
-    concepts = db.query(FeeConcept).order_by(FeeConcept.name).all()
-    terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all() 
+    if 'csrf_token' not in session: 
+        session['csrf_token'] = generate_csrf_token()
     
     try:
+        # Cargamos el objeto con sus relaciones para el HTML
         schedule = db.query(FeeSchedule).filter(FeeSchedule.schedule_id == schedule_id).first()
+        
         if not schedule:
             session['flash_message'] = "Error: Tarifa no encontrada."
             return '302 Found', [('Location', '/fees/schedules/list')], [b'Redirecting...']
 
-        context = {'csrf_token': csrf_token, 'error': None, 'schedule': schedule, 'programs': programs, 'concepts': concepts, 'terms': terms}
+        context = {
+            'csrf_token': session['csrf_token'], 
+            'error': None, 
+            'schedule': schedule
+        }
 
         if method == 'POST':
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
             form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
             
-            # (Validación CSRF)
+            # Capturamos el monto del formulario (name="amount" en el HTML)
+            amount_str = form_data.get('amount', [''])[0].strip()
             
-            concept_id = form_data.get('fee_concept_id', [str(schedule.fee_concept_id)])[0]
-            program_id = form_data.get('program_id', [str(schedule.program_id)])[0]
-            term_id = form_data.get('term_id', [str(schedule.academic_term_id)])[0]
-            amount_str = form_data.get('amount', [str(schedule.amount)])[0].strip()
-            
-            if not all([concept_id, program_id, term_id, amount_str]):
-                context['error'] = "Todos los campos son obligatorios."
-            
-            try:
-                amount = float(amount_str)
-                if amount <= 0: context['error'] = "El monto debe ser un número positivo."
-            except ValueError:
-                context['error'] = "El monto debe ser un número válido."
+            if not amount_str:
+                context['error'] = "El monto es obligatorio."
+            else:
+                try:
+                    amount = float(amount_str)
+                    if amount <= 0:
+                        context['error'] = "El monto debe ser un número positivo."
+                except ValueError:
+                    context['error'] = "El monto debe ser un número válido."
 
             if context['error']:
                 return "400 Bad Request", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_edit.html', **context).encode('utf-8')]
 
-            schedule.fee_concept_id = int(concept_id)
-            schedule.program_id = int(program_id)
-            schedule.academic_term_id = int(term_id)
-            schedule.amount = amount
+            # ACTUALIZACIÓN CORRECTA SEGÚN TU MODELO:
+            # No cambiamos concept_id ni program_id porque están disabled en el HTML
+            schedule.value_bs = amount # Usamos value_bs como dice tu class FeeSchedule
             
             db.commit()
             
@@ -333,12 +328,13 @@ def fee_schedules_edit(environ, schedule_id):
             return '302 Found', [('Location', '/fees/schedules/list')], [b'Redirecting...']
 
         else:
+            # Método GET
             return "200 OK", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_edit.html', **context).encode('utf-8')]
 
     except Exception as e:
         db.rollback()
-        print(f"Error al actualizar la Tarifa: {e}")
-        context['error'] = "Error de Base de Datos: La combinación (Concepto, Programa y Período) ya existe."
+        print(f"Error detallado: {e}")
+        context['error'] = f"Error de sistema: {str(e)}"
         return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('fees/fee_schedules_edit.html', **context).encode('utf-8')]
         
     finally:
