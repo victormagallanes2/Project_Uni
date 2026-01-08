@@ -39,6 +39,16 @@
                                    value="{{ user.last_name }}" 
                                    required>
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="national_id" class="form-label">Cedula</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="national_id" 
+                                   name="national_id" 
+                                   maxlength="50"
+                                   value="{{ user.national_id }}" 
+                                   required>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="user_type_id" class="form-label">Tipo de Usuario</label>

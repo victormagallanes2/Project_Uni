@@ -50,6 +50,7 @@ def users_create(environ):
                 
             name = form_data.get('name', [''])[0].strip()
             last_name = form_data.get('last_name', [''])[0].strip()
+            national_id = form_data.get('national_id', [''])[0].strip()
             email = form_data.get('email', [''])[0].strip()
             password = form_data.get('password', [''])[0]
             confirm_password = form_data.get('confirm_password', [''])[0]
@@ -74,6 +75,7 @@ def users_create(environ):
             new_user = User(
                 name=name,
                 last_name=last_name,
+                national_id=national_id,
                 email=email,
                 password=hashed_password,
                 user_type_id=int(user_type_id)
@@ -178,6 +180,7 @@ def users_edit(environ, user_id):
 
             name = form_data.get('name', [user.name])[0].strip()
             last_name = form_data.get('last_name', [''])[0].strip()
+            national_id = form_data.get('national_id', [''])[0].strip()
             email = form_data.get('email', [user.email])[0].strip()
             password = form_data.get('password', [''])[0]
             confirm_password = form_data.get('confirm_password', [''])[0]
@@ -185,6 +188,7 @@ def users_edit(environ, user_id):
             error_msg = None
             user.name = name
             user.last_name = last_name
+            user.national_id = national_id
             user.email = email
             user.user_type_id = int(user_type_id)
             

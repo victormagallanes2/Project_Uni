@@ -17,7 +17,7 @@ from fees.views import (
 )
 from transactions.views import (
     payments_register, payments_list_admin, payments_verify,
-    enrollment_choose_sections, enrollment_list_student, enrollment_list_admin
+    enrollment_choose_sections, enrollments_list, enrollments_create
 )
 # ---------------------------
 
@@ -138,10 +138,12 @@ def app(environ, start_response):
         status, headers, body_content = payments_verify(environ, int(pay_verify_match.group(1)))
     elif enroll_choose_match:
         status, headers, body_content = enrollment_choose_sections(environ, int(enroll_choose_match.group(1)))
-    elif enroll_list_match:
-        status, headers, body_content = enrollment_list_student(environ, int(enroll_list_match.group(1)))
-    elif path == '/enrollment/admin/list':
-        status, headers, body_content = enrollment_list_admin(environ)
+    #elif enroll_list_match:
+        #status, headers, body_content = enrollment_list_student(environ, int(enroll_list_match.group(1)))
+    elif path == '/enrollments/list':
+        status, headers, body_content = enrollments_list(environ)
+    elif path == '/enrollments/create':
+        status, headers, body_content = enrollments_create(environ)
 
     # --- RUTAS DE PROGRAMAS ACADÉMICOS ---
     elif path == '/academic/programs/list':

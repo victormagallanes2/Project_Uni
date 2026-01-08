@@ -11,8 +11,9 @@ from fees.models import FeeConcept, Payment, Enrollment # Asumo que Enrollment e
 from academic.models import AcademicTerm, Section, Subject # Necesario para Enrollment
 from users.models import User 
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely 
-
-
+from transactions.models import Enrollment
+from users.models import User
+from datetime import date
 # =========================================================================
 # CRUD de Pagos (Payment)
 # =========================================================================
@@ -284,28 +285,28 @@ def enrollment_choose_sections(environ, student_user_id):
 
 
 # R: Read (Listado Estudiante)
-@login_required
-def enrollment_list_student(environ, student_user_id):
-    """Muestra las secciones en las que está inscrito un estudiante."""
-    db = SessionLocal()
-    session = environ['beaker.session']
-    flash_message = session.pop('flash_message', None)
+# @login_required
+# def enrollment_list_student(environ, student_user_id):
+#     """Muestra las secciones en las que está inscrito un estudiante."""
+#     db = SessionLocal()
+#     session = environ['beaker.session']
+#     flash_message = session.pop('flash_message', None)
     
-    try:
-        enrollments = db.query(Enrollment) \
-            .filter(Enrollment.student_user_id == student_user_id) \
-            .options(joinedload(Enrollment.section).joinedload(Section.subject)) \
-            .order_by(Enrollment.enrollment_date.desc()) \
-            .all()
+#     try:
+#         enrollments = db.query(Enrollment) \
+#             .filter(Enrollment.student_user_id == student_user_id) \
+#             .options(joinedload(Enrollment.section).joinedload(Section.subject)) \
+#             .order_by(Enrollment.enrollment_date.desc()) \
+#             .all()
         
-        html = render_template('transactions/enrollment_list_student.html', enrollments=enrollments, flash_message=flash_message)
-        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
-    finally:
-        db.close()
+#         html = render_template('transactions/enrollment_list_student.html', enrollments=enrollments, flash_message=flash_message)
+#         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+#     finally:
+#         db.close()
 
 # R: Read (Listado Admin)
 @login_required
-def enrollment_list_admin(environ):
+def enrollments_list(environ):
     """Muestra todas las matrículas del sistema."""
     db = SessionLocal()
     session = environ['beaker.session']
@@ -321,7 +322,79 @@ def enrollment_list_admin(environ):
             .order_by(Enrollment.enrollment_date.desc()) \
             .all()
         
-        html = render_template('transactions/enrollment_list_admin.html', enrollments=enrollments, flash_message=flash_message)
+        html = render_template('transactions/enrollments_list.html', enrollments=enrollments, flash_message=flash_message)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
     finally:
         db.close()
+
+
+@login_required
+def enrollments_create(environ):
+    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session: 
+        session['csrf_token'] = generate_csrf_token()
+
+    # 1. Cargar datos
+    students = db.query(User).join(User.user_type).filter(User.user_type.has(name='Alumno')).order_by(User.last_name).all()
+    sections = db.query(Section).options(joinedload(Section.subject)).all()
+
+    context = {
+        'csrf_token': session['csrf_token'],
+        'students': students,
+        'sections': sections,
+        'error': None
+    }
+
+    if method == 'POST':
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
+            
+            s_user_id = form_data.get('student_user_id', [''])[0]
+            sec_id = form_data.get('section_id', [''])[0]
+
+            if not s_user_id or not sec_id:
+                context['error'] = "Debe seleccionar un estudiante y una sección."
+                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
+
+            # VALIDACIONES
+            section = db.query(Section).filter(Section.section_id == int(sec_id)).first()
+            current_enrolled = db.query(Enrollment).filter(Enrollment.section_id == int(sec_id)).count()
+            
+            if current_enrolled >= section.capacity:
+                context['error'] = f"Sección llena. Capacidad máxima: {section.capacity}."
+                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
+
+            exists = db.query(Enrollment).filter(
+                Enrollment.student_user_id == int(s_user_id),
+                Enrollment.section_id == int(sec_id)
+            ).first()
+
+            if exists:
+                context['error'] = "El estudiante ya está inscrito en esta sección."
+                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
+
+            # GUARDAR
+            new_enrollment = Enrollment(
+                student_user_id=int(s_user_id),
+                section_id=int(sec_id),
+                enrollment_date=date.today(), # <--- ESTO FALTABA (Campo obligatorio)
+                status='Registered'
+            )
+            db.add(new_enrollment)
+            db.commit()
+            
+            session['flash_message'] = "Inscripción exitosa."
+            return '302 Found', [('Location', '/enrollments/list')], [b'Redirecting...']
+
+        except Exception as e:
+            db.rollback()
+            context['error'] = f"No se pudo guardar: {str(e)}"
+            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
+        finally:
+            db.close()
+    else:
+        return "200 OK", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
