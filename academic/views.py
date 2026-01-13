@@ -4,13 +4,11 @@ import datetime
 from urllib.parse import parse_qs
 
 # Importaciones CRÍTICAS (Ajusta las rutas si tus modelos están en otro lugar)
-from db import SessionLocal 
-from academic.models import AcademicTerm, Subject, Section 
+from db import SessionLocal
 from users.models import User # Para obtener la lista de profesores
-from core.views import render_template, login_required, generate_csrf_token, parse_date_safely 
-from academic.models import Subject
+from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, parse_form_data, redirect
+from academic.models import Section, Subject, AcademicTerm, SectionSubject, Program
 from sqlalchemy.orm import joinedload
-from academic.models import Program
 
 # =========================================================================
 # CRUD de Períodos Académicos (AcademicTerm)
@@ -203,64 +201,49 @@ def academic_terms_delete(environ, term_id):
 # C: Create (Crear)
 @login_required
 def sections_create(environ):
-    method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
-    csrf_token = session['csrf_token']
-    
-    # Cargar datos para los SELECT
-    subjects = db.query(Subject).order_by(Subject.name).all()
-    terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
-    # Asume que el user_type_id=2 es el rol de Profesor
-    professors = db.query(User).filter(User.user_type_id == 2).order_by(User.last_name).all() 
-    
-    context = {'csrf_token': csrf_token, 'error': None, 'form_data': {}, 'subjects': subjects, 'terms': terms, 'professors': professors}
-
-    try:
-        if method == 'POST':
-            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
-            context['form_data'] = {k: v[0] for k, v in form_data.items() if v}
-            # (Validación CSRF)
-            
-            subject_id = form_data.get('subject_id', [''])[0]
-            term_id = form_data.get('term_id', [''])[0]
-            professor_user_id = form_data.get('professor_user_id', [''])[0]
-            section_code = form_data.get('section_code', [''])[0].strip()
-            capacity_str = form_data.get('capacity', [''])[0].strip()
-            
-            if not all([subject_id, term_id, professor_user_id, section_code, capacity_str]):
-                context['error'] = "Todos los campos son obligatorios."
-            
-            try:
-                capacity = int(capacity_str)
-                if capacity <= 0: context['error'] = "La capacidad debe ser un número entero positivo."
-            except ValueError:
-                context['error'] = "La capacidad debe ser un número válido."
-
-            if context['error']:
-                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('academic/sections_create.html', **context).encode('utf-8')]
-
-            new_section = Section(subject_id=int(subject_id), term_id=int(term_id), professor_user_id=int(professor_user_id), section_code=section_code, capacity=capacity)
-            db.add(new_section)
-            db.commit()
-            
-            session['flash_message'] = f"Oferta de Sección '{section_code}' creada con éxito."
-            return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
-
-        else:
-            return "200 OK", [('Content-type', 'text/html')], [render_template('academic/sections_create.html', **context).encode('utf-8')]
-
-    except Exception as e:
-        db.rollback()
-        print(f"Error al crear la Sección: {e}")
-        context['error'] = "Error de Base de Datos: El código de sección o la combinación de datos ya existe."
-        return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/sections_create.html', **context).encode('utf-8')]
+    if environ['REQUEST_METHOD'] == 'POST':
+        form_data = parse_form_data(environ) # Tu función para leer el POST
         
-    finally:
-        db.close()
+        try:
+            # 1. Crear la Sección (El Cohorte)
+            new_section = Section(
+                section_code=form_data.get('section_code'),
+                term_id=form_data.get('term_id'),
+                capacity=form_data.get('capacity', 30)
+            )
+            db.add(new_section)
+            db.flush() # Para obtener el ID de la sección antes del commit final
+
+            # 2. Asignar las materias seleccionadas
+            subject_ids = form_data.getall('subject_ids') # Obtiene lista de checkboxes
+            for s_id in subject_ids:
+                mapping = SectionSubject(
+                    section_id=new_section.section_id,
+                    subject_id=s_id
+                )
+                db.add(mapping)
+            
+            db.commit()
+            session['flash_message'] = "Sección y materias creadas exitosamente"
+            return redirect('/academic/sections/list')
+        except Exception as e:
+            db.rollback()
+            # Manejar error...
+    
+    # Datos para los Selects del formulario
+    terms = db.query(AcademicTerm).all()
+    subjects = db.query(Subject).all()
+    
+    context = {
+        'terms': terms,
+        'subjects': subjects,
+        'user_name': session.get('user_name')
+    }
+    
+    return "200 OK", [('Content-type', 'text/html')], [render_template('academic/sections_create.html', **context).encode('utf-8')]
 
 # R: Read (Listar)
 @login_required
@@ -270,10 +253,20 @@ def sections_list(environ):
     flash_message = session.pop('flash_message', None)
     
     try:
-        # Consulta que incluye las relaciones para mostrar el nombre del profesor, materia y período
-        sections = db.query(Section).join(Subject).join(AcademicTerm).join(User).order_by(AcademicTerm.start_date.desc(), Subject.name).all()
+        # Cargamos las secciones y sus relaciones
+        # Traemos el Periodo (term) y la lista de materias (subjects) con sus detalles
+        sections = db.query(Section).options(
+            joinedload(Section.term),
+            joinedload(Section.subjects).joinedload(SectionSubject.subject)
+        ).all()
         
-        html = render_template('academic/sections_list.html', sections=sections, flash_message=flash_message)
+        context = {
+            'sections': sections,
+            'flash_message': flash_message,
+            'user_name': session.get('user_name', 'Usuario')
+        }
+        
+        html = render_template('academic/sections_list.html', **context)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
     finally:
         db.close()
@@ -281,115 +274,91 @@ def sections_list(environ):
 # U: Update (Actualizar)
 @login_required
 def sections_edit(environ, section_id):
-    method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
-    csrf_token = session['csrf_token']
-    
-    subjects = db.query(Subject).order_by(Subject.name).all()
-    terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
-    professors = db.query(User).filter(User.user_type_id == 2).order_by(User.last_name).all() 
-    
-    try:
-        section = db.query(Section).filter(Section.section_id == section_id).first()
-        if not section:
-            session['flash_message'] = "Error: Sección no encontrada."
-            return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
+    # 1. Obtener la sección con sus materias actuales
+    section = db.query(Section).filter(Section.section_id == section_id).first()
+    if not section:
+        session['flash_message'] = "Sección no encontrada."
+        return redirect('/academic/sections/list')
 
-        context = {'csrf_token': csrf_token, 'error': None, 'section': section, 'subjects': subjects, 'terms': terms, 'professors': professors}
-
-        if method == 'POST':
-            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
-            
-            # (Validación CSRF)
-            
-            subject_id = form_data.get('subject_id', [str(section.subject_id)])[0]
-            term_id = form_data.get('term_id', [str(section.term_id)])[0]
-            professor_user_id = form_data.get('professor_user_id', [str(section.professor_user_id)])[0]
-            section_code = form_data.get('section_code', [section.section_code])[0].strip()
-            capacity_str = form_data.get('capacity', [str(section.capacity)])[0].strip()
-            
-            if not all([subject_id, term_id, professor_user_id, section_code, capacity_str]):
-                context['error'] = "Todos los campos son obligatorios."
-            
-            try:
-                capacity = int(capacity_str)
-                if capacity <= 0: context['error'] = "La capacidad debe ser un número entero positivo."
-            except ValueError:
-                context['error'] = "La capacidad debe ser un número válido."
-
-            if context['error']:
-                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('academic/sections_edit.html', **context).encode('utf-8')]
-
-            section.subject_id = int(subject_id)
-            section.term_id = int(term_id)
-            section.professor_user_id = int(professor_user_id)
-            section.section_code = section_code
-            section.capacity = capacity
-            
-            db.commit()
-            
-            session['flash_message'] = f"Sección {section_code} actualizada con éxito."
-            return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
-
-        else:
-            return "200 OK", [('Content-type', 'text/html')], [render_template('academic/sections_edit.html', **context).encode('utf-8')]
-
-    except Exception as e:
-        db.rollback()
-        print(f"Error al actualizar la Sección: {e}")
-        context['error'] = "Error de Base de Datos. El código de sección o la combinación de datos ya existe."
-        return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('academic/sections_edit.html', **context).encode('utf-8')]
+    if environ['REQUEST_METHOD'] == 'POST':
+        form_data = parse_form_data(environ)
         
-    finally:
-        db.close()
+        try:
+            # Actualizar datos básicos
+            section.section_code = form_data.get('section_code')
+            section.term_id = form_data.get('term_id')
+            section.capacity = form_data.get('capacity')
+
+            # Sincronizar Materias (Muchos a Muchos)
+            # Borramos las asociaciones actuales para insertar las nuevas
+            db.query(SectionSubject).filter(SectionSubject.section_id == section_id).delete()
+            
+            subject_ids = form_data.getall('subject_ids')
+            for s_id in subject_ids:
+                new_mapping = SectionSubject(section_id=section_id, subject_id=s_id)
+                db.add(new_mapping)
+
+            db.commit()
+            session['flash_message'] = "Sección actualizada con éxito."
+            return redirect('/academic/sections/list')
+        except Exception as e:
+            db.rollback()
+            session['flash_message'] = f"Error al actualizar: {str(e)}"
+
+    # Datos para el formulario
+    terms = db.query(AcademicTerm).all()
+    subjects = db.query(Subject).all()
+    
+    # Creamos una lista de IDs de materias que ya tiene la sección para marcarlas en el HTML
+    current_subject_ids = [s.subject_id for s in section.subjects]
+    
+    context = {
+        'section': section,
+        'terms': terms,
+        'subjects': subjects,
+        'current_subject_ids': current_subject_ids,
+        'user_name': session.get('user_name')
+    }
+    
+    html = render_template('academic/sections_edit.html', **context)
+    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
 # D: Delete (Eliminar)
 @login_required
 def sections_delete(environ, section_id):
-    method = environ.get('REQUEST_METHOD', 'GET')
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: session['csrf_token'] = generate_csrf_token()
-    csrf_token = session['csrf_token']
-
     try:
+        # 1. Buscar la sección
         section = db.query(Section).filter(Section.section_id == section_id).first()
         
         if not section:
-            session['flash_message'] = "Error: Sección no encontrada."
-            return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
+            session['flash_message'] = "Error: La sección no existe."
+            return redirect('/academic/sections/list')
 
-        if method == 'POST':
-            # (Validación CSRF)
-            
-            db.delete(section)
-            db.commit()
-            
-            session['flash_message'] = f"Sección {section.section_code} eliminada con éxito."
-            return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
+        # 2. Borrar las relaciones en la tabla intermedia (SectionSubject)
+        # Esto es necesario para evitar errores de integridad
+        db.query(SectionSubject).filter(SectionSubject.section_id == section_id).delete()
         
-        else:
-            html = render_template('academic/sections_confirm_delete.html', section=section, csrf_token=csrf_token)
-            return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
-            
+        # 3. Borrar la sección
+        db.delete(section)
+        
+        db.commit()
+        session['flash_message'] = f"Sección {section.section_code} eliminada exitosamente."
+        
     except Exception as e:
         db.rollback()
-        print(f"Error al eliminar sección: {e}")
-        if "IntegrityError" in str(e):
-            flash_msg = "Error: No se puede eliminar. Existen matrículas (Enrollments) asociadas a esta sección."
-        else:
-            flash_msg = "Error interno al intentar eliminar la sección."
-
-        session['flash_message'] = flash_msg
-        return '302 Found', [('Location', '/academic/sections/list')], [b'Redirecting...']
+        session['flash_message'] = f"No se pudo eliminar: La sección tiene alumnos inscritos."
+        print(f"Error al eliminar: {e}")
         
     finally:
         db.close()
+        
+    return redirect('/academic/sections/list')
 
 
 @login_required

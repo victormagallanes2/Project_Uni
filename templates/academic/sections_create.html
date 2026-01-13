@@ -1,65 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}Crear Sección{% endblock %}
-
 {% block content %}
-<div class="row">
-    <div class="col-12"><h1 class="mb-4">Nueva Sección</h1></div>
-</div>
+<h1>Crear Nueva Sección (Cohorte)</h1>
 
-<div class="row">
-    <div class="col-lg-8"> 
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <form method="POST" action="/academic/sections/create">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Materia</label>
-                        <select class="form-select" name="subject_id" required>
-                            <option value="" disabled selected>Seleccione una materia...</option>
-                            {% for subject in subjects %}
-                            <option value="{{ subject.subject_id }}">{{ subject.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+<form method="POST" class="mt-4">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Código de la Sección</label>
+            <input type="text" name="section_code" class="form-control" placeholder="Ej: INF-01A" required>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Periodo Académico</label>
+            <select name="term_id" class="form-select" required>
+                {% for term in terms %}
+                <option value="{{ term.term_id }}">{{ term.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Período Académico</label>
-                            <select class="form-select" name="term_id" required>
-                                {% for term in terms %}
-                                <option value="{{ term.term_id }}">{{ term.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Código de Sección</label>
-                            <input type="text" class="form-control" name="section_code" placeholder="SEC-01" required>
-                        </div>
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <strong>Selecciona las materias para este grupo</strong>
+        </div>
+        <div class="card-body" style="max-height: 300_px; overflow-y: auto;">
+            <div class="row">
+                {% for subject in subjects %}
+                <div class="col-md-4 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="subject_ids" value="{{ subject.subject_id }}" id="sub_{{ subject.subject_id }}">
+                        <label class="form-check-label" for="sub_{{ subject.subject_id }}">
+                            {{ subject.name }} <br>
+                            <small class="text-muted">{{ subject.code }}</small>
+                        </label>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Profesor</label>
-                        <select class="form-select" name="professor_user_id" required>
-                            {% for prof in professors %}
-                            <option value="{{ prof.id }}">{{ prof.last_name }}, {{ prof.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Capacidad de Alumnos</label>
-                        <input type="number" class="form-control" name="capacity" value="30" required>
-                    </div>
-
-                    <div class="d-flex justify-content-end mt-4">
-                        <a href="/academic/sections/list" class="btn btn-secondary me-2">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">Guardar Sección</button>
-                    </div>
-                </form>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
-</div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-success">Guardar Sección</button>
+        <a href="/academic/sections/list" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
 {% endblock %}

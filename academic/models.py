@@ -21,7 +21,8 @@ class Subject(Base):
     credits = Column(Integer, nullable=False) # Unidades de Crédito (UC)
     
     program = relationship("Program", back_populates="subjects")
-    sections = relationship("Section", back_populates="subject")
+    sections = relationship("SectionSubject", back_populates="subject")
+    enrollments = relationship("Enrollment", back_populates="subject")
 
 class AcademicTerm(Base):
     __tablename__ = 'academic_terms'
@@ -39,18 +40,27 @@ class AcademicTerm(Base):
 class Section(Base):
     __tablename__ = 'sections'
     section_id = Column(Integer, primary_key=True)
-    subject_id = Column(Integer, ForeignKey('subjects.subject_id'), nullable=False)
     term_id = Column(Integer, ForeignKey('academic_terms.term_id'), nullable=False)
-    professor_user_id = Column(Integer, ForeignKey('users.id')) 
-    section_code = Column(String(20), unique=True)
-    
-    # LÍMITE DE CUPOS DISPONIBLES
-    capacity = Column(Integer, nullable=False, default=1) 
-    
-    subject = relationship("Subject", back_populates="sections")
+    section_code = Column(String(20), unique=True, nullable=False)
+    capacity = Column(Integer, nullable=False, default=30) 
     term = relationship("AcademicTerm", back_populates="sections")
-    professor = relationship("User", foreign_keys=[professor_user_id])
+    subjects = relationship("SectionSubject", back_populates="section")
     enrollments = relationship("Enrollment", back_populates="section")
+
+
+class SectionSubject(Base):
+    """ Esta tabla vincula qué materias se ven en qué sección """
+    __tablename__ = 'section_subjects'
+    id = Column(Integer, primary_key=True)
+    section_id = Column(Integer, ForeignKey('sections.section_id'), nullable=False)
+    subject_id = Column(Integer, ForeignKey('subjects.subject_id'), nullable=False)
+    professor_user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    
+    # RELACIONES
+    section = relationship("Section", back_populates="subjects")
+    subject = relationship("Subject", back_populates="sections")
+    professor = relationship("User")
+
 
 class Prerequisite(Base):
     __tablename__ = 'prerequisites'

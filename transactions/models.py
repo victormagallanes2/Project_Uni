@@ -8,13 +8,16 @@ class Enrollment(Base):
     enrollment_id = Column(Integer, primary_key=True)
     student_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     section_id = Column(Integer, ForeignKey('sections.section_id'), nullable=False)
-    payment_id = Column(Integer, ForeignKey('payments.payment_id'), nullable=True) # Pago asociado
+    # Agregamos subject_id aquí para saber exactamente qué materia inscribió dentro de esa sección
+    subject_id = Column(Integer, ForeignKey('subjects.subject_id'), nullable=False)
+    
     enrollment_date = Column(Date, nullable=False)
-    status = Column(String(50), default='Registered') # Estatus de la inscripción
+    status = Column(String(50), default='Registered')
     
-    student = relationship("User", foreign_keys=[student_user_id])
+    # RELACIONES
+    student = relationship("User", back_populates="enrollments")
     section = relationship("Section", back_populates="enrollments")
-    payment = relationship("Payment")
-    
-    # Restricción: No se permite doble inscripción en la misma sección
-    __table_args__ = (UniqueConstraint('student_user_id', 'section_id', name='uq_student_section'),)
+    subject = relationship("Subject", back_populates="enrollments")
+
+    # Restricción: Un alumno no puede inscribir la misma MATERIA en la misma SECCIÓN dos veces
+    __table_args__ = (UniqueConstraint('student_user_id', 'section_id', 'subject_id', name='uq_student_section_subject'),)

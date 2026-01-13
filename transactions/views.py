@@ -307,23 +307,22 @@ def enrollment_choose_sections(environ, student_user_id):
 # R: Read (Listado Admin)
 @login_required
 def enrollments_list(environ):
-    """Muestra todas las matrículas del sistema."""
     db = SessionLocal()
-    session = environ['beaker.session']
-    flash_message = session.pop('flash_message', None)
-    
     try:
-        enrollments = db.query(Enrollment) \
-            .options(
-                joinedload(Enrollment.student),
-                joinedload(Enrollment.section).joinedload(Section.subject),
-                joinedload(Enrollment.section).joinedload(Section.term)
-            ) \
-            .order_by(Enrollment.enrollment_date.desc()) \
-            .all()
-        
-        html = render_template('transactions/enrollments_list.html', enrollments=enrollments, flash_message=flash_message)
-        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        # Traemos las inscripciones cargando las relaciones necesarias
+        # Enrollment -> User (student)
+        # Enrollment -> Section -> Subject
+        enrollments = db.query(Enrollment).options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.section).joinedload(Section.subject)
+        ).order_by(Enrollment.enrollment_date.desc()).all()
+
+        context = {
+            'enrollments': enrollments,
+            'user_name': environ['beaker.session'].get('user_name', 'Usuario')
+        }
+
+        return "200 OK", [('Content-type', 'text/html')], [render_template('transactions/enrollments_list.html', **context).encode('utf-8')]
     finally:
         db.close()
 
