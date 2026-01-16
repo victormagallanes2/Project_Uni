@@ -9,8 +9,8 @@ class Program(Base):
     name = Column(String(150), nullable=False, unique=True) # Ej: DOCTORADO EN CIENCIAS ADMINISTRATIVAS
     level = Column(String(50), nullable=False) # 'Doctorado', 'Maestría', 'Postgrado'
     total_credits = Column(Integer)
-    
     subjects = relationship("Subject", back_populates="program")
+    students = relationship("User", back_populates="program")
 
 class Subject(Base):
     __tablename__ = 'subjects' # La tabla para las Materias

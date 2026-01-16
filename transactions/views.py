@@ -3,14 +3,14 @@
 import datetime
 from urllib.parse import parse_qs
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, asc
 
 # Importaciones CRÍTICAS
 from db import SessionLocal 
 from fees.models import FeeConcept, Payment, Enrollment # Asumo que Enrollment está aquí
-from academic.models import AcademicTerm, Section, Subject # Necesario para Enrollment
+from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program
 from users.models import User 
-from core.views import render_template, login_required, generate_csrf_token, parse_date_safely 
+from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, redirect, parse_form_data
 from transactions.models import Enrollment
 from users.models import User
 from datetime import date
@@ -283,117 +283,157 @@ def enrollment_choose_sections(environ, student_user_id):
     finally:
         db.close()
 
-
-# R: Read (Listado Estudiante)
-# @login_required
-# def enrollment_list_student(environ, student_user_id):
-#     """Muestra las secciones en las que está inscrito un estudiante."""
-#     db = SessionLocal()
-#     session = environ['beaker.session']
-#     flash_message = session.pop('flash_message', None)
-    
-#     try:
-#         enrollments = db.query(Enrollment) \
-#             .filter(Enrollment.student_user_id == student_user_id) \
-#             .options(joinedload(Enrollment.section).joinedload(Section.subject)) \
-#             .order_by(Enrollment.enrollment_date.desc()) \
-#             .all()
-        
-#         html = render_template('transactions/enrollment_list_student.html', enrollments=enrollments, flash_message=flash_message)
-#         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
-#     finally:
-#         db.close()
-
-# R: Read (Listado Admin)
 @login_required
 def enrollments_list(environ):
     db = SessionLocal()
+    session = environ['beaker.session']
+    
     try:
-        # Traemos las inscripciones cargando las relaciones necesarias
-        # Enrollment -> User (student)
-        # Enrollment -> Section -> Subject
+        # Consultamos agrupando por estudiante para mostrar una sola fila por inscripción
         enrollments = db.query(Enrollment).options(
-            joinedload(Enrollment.student),
-            joinedload(Enrollment.section).joinedload(Section.subject)
-        ).order_by(Enrollment.enrollment_date.desc()).all()
-
+            joinedload(Enrollment.student).joinedload(User.program),
+            joinedload(Enrollment.section)
+        ).group_by(Enrollment.student_user_id).all() 
+        # Al agrupar por student_user_id, colapsamos las materias en un solo registro de vista
+        
         context = {
             'enrollments': enrollments,
-            'user_name': environ['beaker.session'].get('user_name', 'Usuario')
+            'user_name': session.get('user_name'),
+            'flash_message': session.pop('flash_message', None)
         }
-
-        return "200 OK", [('Content-type', 'text/html')], [render_template('transactions/enrollments_list.html', **context).encode('utf-8')]
+        
+        html = render_template('transactions/enrollments_list.html', **context)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
     finally:
         db.close()
 
 
 @login_required
 def enrollments_create(environ):
-    method = environ.get('REQUEST_METHOD', 'GET')
+    db = SessionLocal()
+    session = environ['beaker.session']
+    user_id = int(session.get('user_id')) # ID del usuario logueado
+    
+    try:
+        # 1. Buscamos al estudiante (necesario tanto para GET como para POST)
+        student = db.query(User).filter(User.id == user_id).first()
+        
+        if not student:
+            session['flash_message'] = "Error: Usuario no encontrado."
+            return redirect('/transactions/enrollments/list')
+
+        # --- LÓGICA DE PROCESAMIENTO (POST) ---
+        if environ['REQUEST_METHOD'] == 'POST':
+            form_data = parse_form_data(environ)
+            program_id = int(form_data.get('program_id'))
+            
+            # A. VALIDACIÓN: ¿Ya está inscrito en este u otro programa?
+            already_enrolled = db.query(Enrollment).filter(
+                Enrollment.student_user_id == user_id
+            ).first()
+
+            if already_enrolled:
+                session['flash_message'] = "Usted ya posee una inscripción activa en el sistema."
+                return redirect('/transactions/enrollments/list')
+
+            # B. BÚSQUEDA SECUENCIAL DE SECCIÓN (Llenado por orden de ID)
+            # Buscamos secciones que tengan materias de ese programa y cupo > 0
+            section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
+                .filter(Subject.program_id == program_id)\
+                .filter(Section.capacity > 0)\
+                .order_by(asc(Section.section_id))\
+                .with_for_update().first() # Bloqueo de fila para evitar sobrecupo
+
+            if not section:
+                session['flash_message'] = "No hay cupos disponibles para el programa seleccionado en este momento."
+                return redirect('/transactions/enrollments/create')
+
+            # C. OBTENER TODAS LAS MATERIAS DEL PROGRAMA
+            subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
+            
+            if not subjects:
+                session['flash_message'] = "Error: El programa seleccionado no tiene materias configuradas."
+                return redirect('/transactions/enrollments/create')
+
+            # D. EJECUTAR INSCRIPCIÓN MASIVA
+            for subject in subjects:
+                new_reg = Enrollment(
+                    student_user_id=user_id,
+                    section_id=section.section_id,
+                    subject_id=subject.subject_id,
+                    enrollment_date=date.today(),
+                    status='Registered'
+                )
+                db.add(new_reg)
+
+            # E. ACTUALIZACIÓN FINAL
+            section.capacity -= 1 # Descontamos 1 cupo de la sección
+            student.program_id = program_id # Vinculamos al alumno con la carrera
+            
+            db.commit()
+            session['flash_message'] = f"¡Éxito! Inscrito en {section.section_code} para el programa seleccionado."
+            return redirect('/transactions/enrollments/list')
+
+        # --- LÓGICA DE CARGA DEL FORMULARIO (GET) ---
+        programs = db.query(Program).all()
+        
+        context = {
+            'student': student,  # Pasamos el objeto student para evitar el error de Jinja2
+            'programs': programs,
+            'user_name': session.get('user_name'),
+            'flash_message': session.pop('flash_message', None)
+        }
+        
+        # IMPORTANTE: Asegúrate de que la ruta del template sea exacta a la de tu proyecto
+        html = render_template('transactions/enrollments_create.html', **context)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error en enrollment_create: {str(e)}")
+        session['flash_message'] = "Ocurrió un error interno al procesar la solicitud."
+        return redirect('/transactions/enrollments/list')
+    finally:
+        db.close()
+
+
+@login_required
+def enrollments_delete(environ, enrollment_id):
     db = SessionLocal()
     session = environ['beaker.session']
     
-    if 'csrf_token' not in session: 
-        session['csrf_token'] = generate_csrf_token()
+    # Extraer el ID de la inscripción desde la URL (dependiendo de tu enrutador)
+    # Por ejemplo, si tu URL es /delete/5
+    path_parts = environ['PATH_INFO'].split('/')
+    enrollment_id = int(path_parts[-1])
 
-    # 1. Cargar datos
-    students = db.query(User).join(User.user_type).filter(User.user_type.has(name='Alumno')).order_by(User.last_name).all()
-    sections = db.query(Section).options(joinedload(Section.subject)).all()
-
-    context = {
-        'csrf_token': session['csrf_token'],
-        'students': students,
-        'sections': sections,
-        'error': None
-    }
-
-    if method == 'POST':
-        try:
-            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-            form_data = parse_qs(environ['wsgi.input'].read(request_body_size).decode('utf-8'))
+    try:
+        # 1. Buscar la inscripción para saber la sección
+        target = db.query(Enrollment).filter(Enrollment.enrollment_id == enrollment_id).first()
+        
+        if target:
+            section_id = target.section_id
+            student_id = target.student_user_id
             
-            s_user_id = form_data.get('student_user_id', [''])[0]
-            sec_id = form_data.get('section_id', [''])[0]
-
-            if not s_user_id or not sec_id:
-                context['error'] = "Debe seleccionar un estudiante y una sección."
-                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
-
-            # VALIDACIONES
-            section = db.query(Section).filter(Section.section_id == int(sec_id)).first()
-            current_enrolled = db.query(Enrollment).filter(Enrollment.section_id == int(sec_id)).count()
+            # 2. Borrar TODAS las materias de ese alumno en esa sección
+            db.query(Enrollment).filter(
+                Enrollment.student_user_id == student_id,
+                Enrollment.section_id == section_id
+            ).delete()
             
-            if current_enrolled >= section.capacity:
-                context['error'] = f"Sección llena. Capacidad máxima: {section.capacity}."
-                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
-
-            exists = db.query(Enrollment).filter(
-                Enrollment.student_user_id == int(s_user_id),
-                Enrollment.section_id == int(sec_id)
-            ).first()
-
-            if exists:
-                context['error'] = "El estudiante ya está inscrito en esta sección."
-                return "400 Bad Request", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
-
-            # GUARDAR
-            new_enrollment = Enrollment(
-                student_user_id=int(s_user_id),
-                section_id=int(sec_id),
-                enrollment_date=date.today(), # <--- ESTO FALTABA (Campo obligatorio)
-                status='Registered'
-            )
-            db.add(new_enrollment)
+            # 3. DEVOLVER EL CUPO (+1)
+            section = db.query(Section).filter(Section.section_id == section_id).first()
+            if section:
+                section.capacity += 1
+            
             db.commit()
-            
-            session['flash_message'] = "Inscripción exitosa."
-            return '302 Found', [('Location', '/enrollments/list')], [b'Redirecting...']
+            session['flash_message'] = "Inscripción anulada y cupo devuelto exitosamente."
+        
+        return redirect('/transactions/enrollments/list')
 
-        except Exception as e:
-            db.rollback()
-            context['error'] = f"No se pudo guardar: {str(e)}"
-            return "500 Internal Server Error", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
-        finally:
-            db.close()
-    else:
-        return "200 OK", [('Content-type', 'text/html')], [render_template('transactions/enrollments_create.html', **context).encode('utf-8')]
+    except Exception as e:
+        db.rollback()
+        print(f"Error al eliminar: {e}")
+        return redirect('/transactions/enrollments/list')
+    finally:
+        db.close()

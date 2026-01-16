@@ -17,7 +17,7 @@ from fees.views import (
 )
 from transactions.views import (
     payments_register, payments_list_admin, payments_verify,
-    enrollment_choose_sections, enrollments_list, enrollments_create
+    enrollment_choose_sections, enrollments_list, enrollments_create, enrollments_delete
 )
 # ---------------------------
 
@@ -61,6 +61,8 @@ def app(environ, start_response):
     pay_verify_match = re.match(r'^/payments/verify/(\d+)$', path)     # Recibe payment_id
     enroll_choose_match = re.match(r'^/enrollment/choose/(\d+)$', path) # Recibe student_user_id
     enroll_list_match = re.match(r'^/enrollment/list/(\d+)$', path)   # Recibe student_user_id
+    enroll_edit_match = re.match(r'^/transactions/enrollments/edit/(\d+)$', path)
+    enroll_delete_match = re.match(r'^/transactions/enrollments/delete/(\d+)$', path)
 
     prog_edit_match = re.match(r'^/academic/programs/edit/(\d+)$', path)
     prog_delete_match = re.match(r'^/academic/programs/delete/(\d+)$', path)
@@ -138,12 +140,18 @@ def app(environ, start_response):
         status, headers, body_content = payments_verify(environ, int(pay_verify_match.group(1)))
     elif enroll_choose_match:
         status, headers, body_content = enrollment_choose_sections(environ, int(enroll_choose_match.group(1)))
-    #elif enroll_list_match:
-        #status, headers, body_content = enrollment_list_student(environ, int(enroll_list_match.group(1)))
-    elif path == '/enrollments/list':
+
+
+    elif enroll_edit_match:
+        status, headers, body_content = enrollments_edit(environ, int(enroll_edit_match.group(1)))
+    elif enroll_delete_match:
+        status, headers, body_content = enrollments_delete(environ, int(enroll_delete_match.group(1)))
+    elif path == '/transactions/enrollments/list':
         status, headers, body_content = enrollments_list(environ)
-    elif path == '/enrollments/create':
+    elif path == '/transactions/enrollments/create':
         status, headers, body_content = enrollments_create(environ)
+
+
 
     # --- RUTAS DE PROGRAMAS ACADÉMICOS ---
     elif path == '/academic/programs/list':

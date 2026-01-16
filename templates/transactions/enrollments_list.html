@@ -1,63 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Lista de Inscripciones{% endblock %}
-
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">Control de Inscripciones</h1>
-        <a href="/enrollments/create" class="btn btn-primary mb-3">
-            <i class="fas fa-user-plus me-1"></i> Nueva Inscripción
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary"><i class="fas fa-users"></i> Estudiantes Inscritos</h2>
+        <a href="/transactions/enrollments/create" class="btn btn-success shadow-sm">
+            <i class="fas fa-plus"></i> Nueva Inscripción
         </a>
     </div>
-</div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="bg-light">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Cédula</th>
-                        <th>Estudiante</th>
-                        <th>Materia / Sección</th>
-                        <th>Estatus</th>
-                        <th class="text-end px-4">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in enrollments %}
-                    <tr>
-                        <td class="align-middle">{{ item.enrollment_date }}</td>
-                        <td class="align-middle">{{ item.student.national_id }}</td>
-                        <td class="align-middle fw-bold">
-                            {{ item.student.last_name }}, {{ item.student.name }}
-                        </td>
-                        <td class="align-middle">
-                            <span class="d-block">{{ item.section.subject.name }}</span>
-                            <small class="text-muted">Sección: {{ item.section.section_code }}</small>
-                        </td>
-                        <td class="align-middle">
-                            <span class="badge {% if item.status == 'Registered' %}bg-info{% else %}bg-success{% endif %}">
-                                {{ item.status }}
-                            </span>
-                        </td>
-                        <td class="text-end px-4">
-                            <button class="btn btn-sm btn-outline-danger" title="Anular Inscripción">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">
-                            No hay inscripciones registradas actualmente.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-dark text-white">
+                        <tr>
+                            <th class="ps-4">National ID</th>
+                            <th>Nombre Completo</th>
+                            <th>Carrera / Programa</th>
+                            <th>Sección Asignada</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in enrollments %}
+                        <tr>
+                            <td class="ps-4 fw-bold">
+                                {{ item.student.national_id }}
+                            </td>
+                            <td>
+                                {{ item.student.name }} {{ item.student.last_name }}
+                            </td>
+                            <td>
+                                <span class="text-primary fw-semibold">
+                                    {{ item.student.program.name if item.student.program else 'N/A' }}
+                                </span>
+                                <br><small class="text-muted">{{ item.student.program.level }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-dark">
+                                    <i class="fas fa-door-open"></i> {{ item.section.section_code }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill bg-success px-3">Inscrito</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="/transactions/enrollments/delete/{{ item.enrollment_id }}" 
+                                   class="btn btn-sm btn-outline-danger" 
+                                   onclick="return confirm('¿Desea anular la inscripción completa de este alumno? Esto devolverá el cupo a la sección.')">
+                                    <i class="fas fa-trash"></i> Anular
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">No hay alumnos inscritos.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
