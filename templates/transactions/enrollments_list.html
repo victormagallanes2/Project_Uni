@@ -1,63 +1,72 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="text-primary"><i class="fas fa-users"></i> Estudiantes Inscritos</h2>
-        <a href="/transactions/enrollments/create" class="btn btn-success shadow-sm">
+        <h2><i class="fas fa-users-check text-success"></i> Alumnos Inscritos</h2>
+        <a href="/transactions/enrollments/create" class="btn btn-primary">
             <i class="fas fa-plus"></i> Nueva Inscripción
         </a>
     </div>
 
-    <div class="card shadow border-0">
+    <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-dark text-white">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <th class="ps-4">National ID</th>
-                            <th>Nombre Completo</th>
-                            <th>Carrera / Programa</th>
-                            <th>Sección Asignada</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th>Estudiante</th>
+                            <th>Programa Académico</th>
+                            <th>Sección</th>
+                            <th class="text-center">Materias</th>
+                            <th>Referencia</th>
+                            <th>Voucher</th>
+                            <th>Estado</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in enrollments %}
-                        <tr>
-                            <td class="ps-4 fw-bold">
-                                {{ item.student.national_id }}
-                            </td>
-                            <td>
-                                {{ item.student.name }} {{ item.student.last_name }}
-                            </td>
-                            <td>
-                                <span class="text-primary fw-semibold">
-                                    {{ item.student.program.name if item.student.program else 'N/A' }}
-                                </span>
-                                <br><small class="text-muted">{{ item.student.program.level }}</small>
-                            </td>
-                            <td>
-                                <span class="badge bg-info text-dark">
-                                    <i class="fas fa-door-open"></i> {{ item.section.section_code }}
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge rounded-pill bg-success px-3">Inscrito</span>
-                            </td>
-                            <td class="text-end pe-4">
-                                <a href="/transactions/enrollments/delete/{{ item.enrollment_id }}" 
-                                   class="btn btn-sm btn-outline-danger" 
-                                   onclick="return confirm('¿Desea anular la inscripción completa de este alumno? Esto devolverá el cupo a la sección.')">
-                                    <i class="fas fa-trash"></i> Anular
-                                </a>
-                            </td>
-                        </tr>
+                        {% for e in enrollments %}
+                            {# Obtenemos el ID del programa a través de la sección de la primera materia #}
+                            {% set prog = e.section.subjects[0].subject.program %}
+                            {% set pay = payment_map.get((e.student_user_id, prog.program_id)) %}
+                            
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ e.student.last_name }}, {{ e.student.name }}</div>
+                                    <div class="text-muted small">ID: {{ e.student.national_id }}</div>
+                                </td>
+                                <td>{{ prog.name }}</td>
+                                <td><span class="badge bg-secondary">{{ e.section.section_code }}</span></td>
+                                <td class="text-center">
+                                    {# Aquí puedes mostrar un número fijo o contar las materias si lo deseas #}
+                                    <span class="badge rounded-pill bg-info text-dark">Inscrito</span>
+                                </td>
+                                <td>
+                                    <small class="font-monospace text-primary">{{ pay.bank_reference if pay else '---' }}</small>
+                                </td>
+                                <td>
+                                    {% if pay and pay.proof_url %}
+                                        <a href="/static/uploads/payments/{{ pay.proof_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-file-invoice-dollar"></i> Ver
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small italic">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if pay %}
+                                        <span class="badge {{ 'bg-success' if pay.status == 'Approved' else 'bg-warning' }}">
+                                            {{ 'PAGADO' if pay.status == 'Approved' else 'PENDIENTE' }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
                         {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">No hay alumnos inscritos.</td>
-                        </tr>
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    No se encontraron registros de inscripción.
+                                </td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>

@@ -18,6 +18,7 @@ class User(Base):
     enrollments = relationship("Enrollment", back_populates="student")
     program_id = Column(Integer, ForeignKey("programs.program_id"), nullable=True)
     program = relationship("Program", back_populates="students")
+    payments = relationship("Payment", back_populates="student")
 
     def __repr__(self):
         return f"User(id={self.id}, email='{self.email}', type_id={self.user_type_id})"

@@ -1,6 +1,9 @@
 # transactions/views.py - Módulo de Transacciones: Pagos y Matrícula
-
+import os
 import datetime
+from datetime import datetime, date
+from werkzeug.wrappers import Request
+from werkzeug.utils import secure_filename
 from urllib.parse import parse_qs
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, asc
@@ -14,6 +17,8 @@ from core.views import render_template, login_required, generate_csrf_token, par
 from transactions.models import Enrollment
 from users.models import User
 from datetime import date
+from fees.models import FeeSchedule
+from sqlalchemy import or_
 # =========================================================================
 # CRUD de Pagos (Payment)
 # =========================================================================
@@ -289,113 +294,144 @@ def enrollments_list(environ):
     session = environ['beaker.session']
     
     try:
-        # Consultamos agrupando por estudiante para mostrar una sola fila por inscripción
-        enrollments = db.query(Enrollment).options(
-            joinedload(Enrollment.student).joinedload(User.program),
-            joinedload(Enrollment.section)
-        ).group_by(Enrollment.student_user_id).all() 
-        # Al agrupar por student_user_id, colapsamos las materias en un solo registro de vista
+        # Consultamos agrupando por estudiante para no repetir filas por materia
+        # Usamos func.max para obtener la fecha más reciente de inscripción si hubiera varias
+        enrollments = db.query(Enrollment).group_by(Enrollment.student_user_id).order_by(Enrollment.enrollment_id.desc()).all()
         
+        # Mapeo de pagos (igual que antes)
+        all_payments = db.query(Payment).all()
+        payment_map = { (p.student_user_id, p.program_id): p for p in all_payments }
+
         context = {
             'enrollments': enrollments,
-            'user_name': session.get('user_name'),
-            'flash_message': session.pop('flash_message', None)
+            'payment_map': payment_map,
+            'user_name': session.get('user_name')
         }
         
         html = render_template('transactions/enrollments_list.html', **context)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+    
+    except Exception as e:
+        print(f"Error en enrollment_list: {e}")
+        return "500 Internal Server Error", [('Content-type', 'text/plain')], [b"Error al cargar la lista"]
     finally:
         db.close()
+
+
+
+
+# Configuración de carpetas
+UPLOAD_FOLDER = os.path.join('static', 'uploads', 'payments')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def parse_form_data_with_files(environ):
+    # Werkzeug maneja el flujo de datos (stream) de forma segura
+    stream, form, files = parse_form_data(environ)
+    return form, files
 
 
 @login_required
 def enrollments_create(environ):
     db = SessionLocal()
     session = environ['beaker.session']
-    user_id = int(session.get('user_id')) # ID del usuario logueado
     
     try:
-        # 1. Buscamos al estudiante (necesario tanto para GET como para POST)
-        student = db.query(User).filter(User.id == user_id).first()
-        
-        if not student:
-            session['flash_message'] = "Error: Usuario no encontrado."
-            return redirect('/transactions/enrollments/list')
-
         # --- LÓGICA DE PROCESAMIENTO (POST) ---
         if environ['REQUEST_METHOD'] == 'POST':
-            form_data = parse_form_data(environ)
-            program_id = int(form_data.get('program_id'))
+            request = Request(environ)
             
-            # A. VALIDACIÓN: ¿Ya está inscrito en este u otro programa?
-            already_enrolled = db.query(Enrollment).filter(
-                Enrollment.student_user_id == user_id
-            ).first()
+            # Obtenemos datos del formulario (ahora el administrativo elige al estudiante)
+            target_student_id = request.form.get('student_id', type=int)
+            program_id = request.form.get('program_id', type=int)
+            bank_ref = request.form.get('bank_reference')
+            file_item = request.files.get('voucher')
 
-            if already_enrolled:
-                session['flash_message'] = "Usted ya posee una inscripción activa en el sistema."
-                return redirect('/transactions/enrollments/list')
+            # Validar existencia del estudiante
+            student = db.query(User).filter(User.id == target_student_id).first()
+            if not student:
+                session['flash_message'] = "Error: Estudiante no seleccionado o no encontrado."
+                return redirect('/transactions/enrollments/create')
 
-            # B. BÚSQUEDA SECUENCIAL DE SECCIÓN (Llenado por orden de ID)
-            # Buscamos secciones que tengan materias de ese programa y cupo > 0
+            # 1. Buscar el costo configurado (FeeSchedule)
+            fee = db.query(FeeSchedule).filter(FeeSchedule.program_id == program_id).first()
+            if not fee:
+                session['flash_message'] = "Error: El programa no tiene un costo (FeeSchedule) configurado."
+                return redirect('/transactions/enrollments/create')
+
+            # 2. Procesar el archivo del Voucher
+            filename = None
+            if file_item and file_item.filename:
+                ext = os.path.splitext(file_item.filename)[1]
+                # Nombre de archivo seguro y único
+                filename = secure_filename(f"V_STU{target_student_id}_{bank_ref}{ext}")
+                file_item.save(os.path.join(UPLOAD_FOLDER, filename))
+
+            # 3. Buscar Sección con cupo (Llenado secuencial)
             section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
                 .filter(Subject.program_id == program_id)\
                 .filter(Section.capacity > 0)\
-                .order_by(asc(Section.section_id))\
-                .with_for_update().first() # Bloqueo de fila para evitar sobrecupo
+                .order_by(asc(Section.section_id)).with_for_update().first()
 
             if not section:
-                session['flash_message'] = "No hay cupos disponibles para el programa seleccionado en este momento."
+                session['flash_message'] = "No hay cupos disponibles para este programa."
                 return redirect('/transactions/enrollments/create')
 
-            # C. OBTENER TODAS LAS MATERIAS DEL PROGRAMA
+            # --- OPERACIÓN ATÓMICA ---
+            # 4. Registrar Pago (Aprobado por ser administrativo)
+            new_payment = Payment(
+                student_user_id=target_student_id,
+                program_id=program_id,
+                concept_id=fee.concept_id,
+                amount=fee.value_bs,
+                bank_reference=bank_ref,
+                proof_url=filename,
+                payment_date=datetime.now(),
+                status='Approved' 
+            )
+            db.add(new_payment)
+
+            # 5. Inscribir materias del programa
             subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
-            
-            if not subjects:
-                session['flash_message'] = "Error: El programa seleccionado no tiene materias configuradas."
-                return redirect('/transactions/enrollments/create')
-
-            # D. EJECUTAR INSCRIPCIÓN MASIVA
-            for subject in subjects:
-                new_reg = Enrollment(
-                    student_user_id=user_id,
+            for sub in subjects:
+                db.add(Enrollment(
+                    student_user_id=target_student_id,
                     section_id=section.section_id,
-                    subject_id=subject.subject_id,
-                    enrollment_date=date.today(),
-                    status='Registered'
-                )
-                db.add(new_reg)
+                    subject_id=sub.subject_id,
+                    enrollment_date=datetime.now().date()
+                ))
 
-            # E. ACTUALIZACIÓN FINAL
-            section.capacity -= 1 # Descontamos 1 cupo de la sección
-            student.program_id = program_id # Vinculamos al alumno con la carrera
+            # 6. Actualizar cupo y vincular programa al estudiante
+            section.capacity -= 1
+            student.program_id = program_id
             
             db.commit()
-            session['flash_message'] = f"¡Éxito! Inscrito en {section.section_code} para el programa seleccionado."
+            session['flash_message'] = f"¡Éxito! {student.name} inscrito en {section.section_code}."
             return redirect('/transactions/enrollments/list')
 
-        # --- LÓGICA DE CARGA DEL FORMULARIO (GET) ---
+        # --- LÓGICA DE CARGA (GET) ---
+        # Filtramos usuarios que NO estén inscritos (program_id es None)
+        available_students = db.query(User).all()
         programs = db.query(Program).all()
         
         context = {
-            'student': student,  # Pasamos el objeto student para evitar el error de Jinja2
+            'students': available_students,
             'programs': programs,
             'user_name': session.get('user_name'),
             'flash_message': session.pop('flash_message', None)
         }
         
-        # IMPORTANTE: Asegúrate de que la ruta del template sea exacta a la de tu proyecto
         html = render_template('transactions/enrollments_create.html', **context)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
     except Exception as e:
         db.rollback()
         print(f"Error en enrollment_create: {str(e)}")
-        session['flash_message'] = "Ocurrió un error interno al procesar la solicitud."
+        session['flash_message'] = f"Error crítico: {str(e)}"
         return redirect('/transactions/enrollments/list')
     finally:
         db.close()
-
 
 @login_required
 def enrollments_delete(environ, enrollment_id):

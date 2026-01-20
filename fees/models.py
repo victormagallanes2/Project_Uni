@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, DateTime
 from sqlalchemy.orm import relationship
 from transactions.models import Enrollment
 from db import Base
+from datetime import datetime
 
 
 class FeeConcept(Base):
@@ -22,15 +23,17 @@ class FeeSchedule(Base):
 
 class Payment(Base):
     __tablename__ = 'payments'
+    
     payment_id = Column(Integer, primary_key=True)
     student_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    program_id = Column(Integer, ForeignKey('programs.program_id'), nullable=True)
     concept_id = Column(Integer, ForeignKey('fee_concepts.concept_id'), nullable=False)
     amount = Column(DECIMAL(12, 2), nullable=False)
-    payment_date = Column(DateTime, nullable=False)
-    proof_url = Column(String(255)) # Enlace al comprobante subido por el alumno
-    invoice_url = Column(String(255)) # Enlace a la factura/comprobante generado por el sistema
-    bank_reference = Column(String(50)) # Referencia bancaria (tomado de tu CSV)
-    status = Column(String(50), default='Pending Verification') # Estatus clave para el proceso
-    
-    student = relationship("User", foreign_keys=[student_user_id])
+    payment_date = Column(DateTime, default=datetime.now, nullable=False)
+    proof_url = Column(String(255))
+    bank_reference = Column(String(50))
+    invoice_url = Column(String(255))
+    status = Column(String(50), default='Pending Verification') 
+    student = relationship("User", foreign_keys=[student_user_id], back_populates="payments")
+    program = relationship("Program")
     concept = relationship("FeeConcept")

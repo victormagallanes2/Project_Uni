@@ -1,8 +1,8 @@
-"""initial
+"""Esquema Inicial
 
-Revision ID: 55c7633d1cd7
+Revision ID: 48b91ac75dbb
 Revises: 
-Create Date: 2026-01-15 10:37:25.081001
+Create Date: 2026-01-19 11:59:45.203005
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '55c7633d1cd7'
+revision: str = '48b91ac75dbb'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -118,14 +118,16 @@ def upgrade() -> None:
     op.create_table('payments',
     sa.Column('payment_id', sa.Integer(), nullable=False),
     sa.Column('student_user_id', sa.Integer(), nullable=False),
+    sa.Column('program_id', sa.Integer(), nullable=True),
     sa.Column('concept_id', sa.Integer(), nullable=False),
     sa.Column('amount', sa.DECIMAL(precision=12, scale=2), nullable=False),
     sa.Column('payment_date', sa.DateTime(), nullable=False),
     sa.Column('proof_url', sa.String(length=255), nullable=True),
-    sa.Column('invoice_url', sa.String(length=255), nullable=True),
     sa.Column('bank_reference', sa.String(length=50), nullable=True),
+    sa.Column('invoice_url', sa.String(length=255), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=True),
     sa.ForeignKeyConstraint(['concept_id'], ['fee_concepts.concept_id'], ),
+    sa.ForeignKeyConstraint(['program_id'], ['programs.program_id'], ),
     sa.ForeignKeyConstraint(['student_user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('payment_id')
     )
