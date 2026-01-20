@@ -1,9 +1,10 @@
 import os
 import re
 from core.views import render_template
-from home.views import home
+from dashboard.views import dashboard
 from authentication.views import login, logout
 from users.views import users_list, users_create, users_edit, users_delete
+from web.views import web
 
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
@@ -168,8 +169,10 @@ def app(environ, start_response):
         status, headers, body_content = programs_delete(environ, int(prog_delete_match.group(1)))
 
     # --- RUTAS HOME & AUTH ---
-    elif path == '/' or path == '/home':
-        status, headers, body_content = home(environ)
+    elif path == '/':
+        status, headers, body_content = web(environ)
+    elif path == '/dashboard':
+        status, headers, body_content = dashboard(environ)
     elif path == '/login':
         status, headers, body_content = login(environ)
     elif path == '/logout':

@@ -53,7 +53,7 @@ def login(environ):
                 session['user_name'] = user.name
                 session['logged_in'] = True
                 status = '302 Found'
-                headers = [('Location', '/')]
+                headers = [('Location', '/dashboard')]
                 return status, headers, [b'Redirecting to dashboard...']
             
             else:
@@ -70,7 +70,7 @@ def login(environ):
         else:
             if session.get('logged_in'):
                 status = '302 Found'
-                headers = [('Location', '/')]
+                headers = [('Location', '/dashboard')]
                 return status, headers, [b'Redirecting to dashboard...']
             html = render_template('authentication/login.html', csrf_token=csrf_token)
             return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
