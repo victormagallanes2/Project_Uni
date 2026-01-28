@@ -1,77 +1,119 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+<style>
+    .select2-container--bootstrap-5 .select2-selection { border-radius: 20px; padding-left: 15px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-users-check text-success"></i> Alumnos Inscritos</h2>
-        <a href="/transactions/enrollments/create" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Nueva Inscripción
-        </a>
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-4">
+            <h2 class="mb-0">Control de Inscritos</h2>
+        </div>
+        
+        <div class="col-md-5">
+            <select id="table_search" class="form-select">
+                <option value="">🔍 Buscar alumno inscrito...</option>
+                {% for e in enrollments %}
+                    <option value="row-{{ e.student_user_id }}">
+                        {{ e.student.national_id }} - {{ e.student.last_name }}, {{ e.student.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3 text-end">
+            <a href="/transactions/enrollments/create" class="btn btn-success rounded-pill">
+                <i class="fas fa-plus"></i> Nueva Inscripción
+            </a>
+        </div>
     </div>
 
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Estudiante</th>
-                            <th>Programa Académico</th>
-                            <th>Sección</th>
-                            <th class="text-center">Materias</th>
-                            <th>Referencia</th>
-                            <th>Voucher</th>
-                            <th>Estado</th>
+            <table class="table table-hover mb-0" id="enrollmentTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Estudiante</th>
+                        <th>Programa</th>
+                        <th>Sección</th>
+                        <th>Referencia</th>
+                        <th>Voucher</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in enrollments %}
+                        {% set prog = e.section.subjects[0].subject.program %}
+                        {% set pay = payment_map.get((e.student_user_id, prog.program_id)) %}
+                        
+                        <tr id="row-{{ e.student_user_id }}">
+                            <td>
+                                <strong>{{ e.student.last_name }}, {{ e.student.name }}</strong><br>
+                                <small class="text-muted">{{ e.student.national_id }}</small>
+                            </td>
+                            <td>{{ prog.name }}</td>
+                            <td><span class="badge bg-secondary">{{ e.section.section_code }}</span></td>
+                            <td><code>{{ pay.bank_reference if pay else '---' }}</code></td>
+                            <td>
+                                {% if pay and pay.proof_url %}
+                                    <a href="/static/uploads/payments/{{ pay.proof_url }}" target="_blank" class="btn btn-sm btn-info text-white">
+                                        <i class="fas fa-image"></i> Ver
+                                    </a>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {{ 'bg-success' if pay.status == 'Approved' else 'bg-warning' }}">
+                                    {{ pay.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="/transactions/enrollments/delete/{{ e.enrollment_id }}" 
+                                   class="btn btn-sm btn-danger rounded-pill px-3"
+                                   onclick="return confirm('¿Estás seguro de anular esta inscripción? El cupo será devuelto a la sección.');">
+                                    <i class="fas fa-trash-alt me-1"></i> Eliminar
+                                </a>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for e in enrollments %}
-                            {# Obtenemos el ID del programa a través de la sección de la primera materia #}
-                            {% set prog = e.section.subjects[0].subject.program %}
-                            {% set pay = payment_map.get((e.student_user_id, prog.program_id)) %}
-                            
-                            <tr>
-                                <td>
-                                    <div class="fw-bold">{{ e.student.last_name }}, {{ e.student.name }}</div>
-                                    <div class="text-muted small">ID: {{ e.student.national_id }}</div>
-                                </td>
-                                <td>{{ prog.name }}</td>
-                                <td><span class="badge bg-secondary">{{ e.section.section_code }}</span></td>
-                                <td class="text-center">
-                                    {# Aquí puedes mostrar un número fijo o contar las materias si lo deseas #}
-                                    <span class="badge rounded-pill bg-info text-dark">Inscrito</span>
-                                </td>
-                                <td>
-                                    <small class="font-monospace text-primary">{{ pay.bank_reference if pay else '---' }}</small>
-                                </td>
-                                <td>
-                                    {% if pay and pay.proof_url %}
-                                        <a href="/static/uploads/payments/{{ pay.proof_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-file-invoice-dollar"></i> Ver
-                                        </a>
-                                    {% else %}
-                                        <span class="text-muted small italic">N/A</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if pay %}
-                                        <span class="badge {{ 'bg-success' if pay.status == 'Approved' else 'bg-warning' }}">
-                                            {{ 'PAGADO' if pay.status == 'Approved' else 'PENDIENTE' }}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
-                                    No se encontraron registros de inscripción.
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar Select2
+    $('#table_search').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+
+    // Lógica para filtrar la tabla al seleccionar
+    $('#table_search').on('select2:select', function (e) {
+        var targetId = e.params.data.id;
+        
+        // Opción A: Resaltar y hacer scroll hacia el alumno
+        $('tr').removeClass('table-primary');
+        $('#' + targetId).addClass('table-primary');
+        $('html, body').animate({
+            scrollTop: $("#" + targetId).offset().top - 100
+        }, 500);
+
+        // Opción B (Si prefieres filtrar y ocultar el resto):
+        /*
+        $('#enrollmentTable tbody tr').hide();
+        $('#' + targetId).show();
+        */
+    });
+});
+</script>
 {% endblock %}

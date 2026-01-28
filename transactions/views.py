@@ -1,4 +1,4 @@
-# transactions/views.py - Módulo de Transacciones: Pagos y Matrícula
+
 import os
 import datetime
 from datetime import datetime, date
@@ -8,22 +8,17 @@ from urllib.parse import parse_qs
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, asc
 
-# Importaciones CRÍTICAS
 from db import SessionLocal 
-from fees.models import FeeConcept, Payment, Enrollment # Asumo que Enrollment está aquí
+from fees.models import FeeConcept, Payment
 from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program
 from users.models import User 
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, redirect, parse_form_data
 from transactions.models import Enrollment
-from users.models import User
 from datetime import date
 from fees.models import FeeSchedule
 from sqlalchemy import or_
-# =========================================================================
-# CRUD de Pagos (Payment)
-# =========================================================================
 
-# C: Create (Registro por Estudiante)
+
 @login_required
 def payments_register(environ, student_user_id): 
     """Permite al estudiante registrar un pago contra un concepto."""
@@ -294,11 +289,9 @@ def enrollments_list(environ):
     session = environ['beaker.session']
     
     try:
-        # Consultamos agrupando por estudiante para no repetir filas por materia
-        # Usamos func.max para obtener la fecha más reciente de inscripción si hubiera varias
+        # Agrupamos por estudiante para tener una fila por proceso de inscripción
         enrollments = db.query(Enrollment).group_by(Enrollment.student_user_id).order_by(Enrollment.enrollment_id.desc()).all()
         
-        # Mapeo de pagos (igual que antes)
         all_payments = db.query(Payment).all()
         payment_map = { (p.student_user_id, p.program_id): p for p in all_payments }
 
@@ -308,15 +301,11 @@ def enrollments_list(environ):
             'user_name': session.get('user_name')
         }
         
-        html = render_template('transactions/enrollments_list.html', **context)
-        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
-    
-    except Exception as e:
-        print(f"Error en enrollment_list: {e}")
-        return "500 Internal Server Error", [('Content-type', 'text/plain')], [b"Error al cargar la lista"]
+        return "200 OK", [('Content-type', 'text/html')], [
+            render_template('transactions/enrollments_list.html', **context).encode('utf-8')
+        ]
     finally:
         db.close()
-
 
 
 
@@ -438,13 +427,12 @@ def enrollments_delete(environ, enrollment_id):
     db = SessionLocal()
     session = environ['beaker.session']
     
-    # Extraer el ID de la inscripción desde la URL (dependiendo de tu enrutador)
-    # Por ejemplo, si tu URL es /delete/5
+    # Extraer el ID de la inscripción desde la URL
     path_parts = environ['PATH_INFO'].split('/')
     enrollment_id = int(path_parts[-1])
 
     try:
-        # 1. Buscar la inscripción para saber la sección
+        # 1. Buscar la inscripción para identificar al alumno y la sección
         target = db.query(Enrollment).filter(Enrollment.enrollment_id == enrollment_id).first()
         
         if target:
@@ -461,9 +449,14 @@ def enrollments_delete(environ, enrollment_id):
             section = db.query(Section).filter(Section.section_id == section_id).first()
             if section:
                 section.capacity += 1
+
+            # 4. LIMPIAR EL PROGRAM_ID DEL USUARIO (Lo que solicitaste)
+            user = db.query(User).filter(User.id == student_id).first()
+            if user:
+                user.program_id = None # O user.program_id = "" según tu BD
             
             db.commit()
-            session['flash_message'] = "Inscripción anulada y cupo devuelto exitosamente."
+            session['flash_message'] = "Inscripción anulada, cupo devuelto y perfil del alumno liberado."
         
         return redirect('/transactions/enrollments/list')
 
@@ -473,3 +466,5 @@ def enrollments_delete(environ, enrollment_id):
         return redirect('/transactions/enrollments/list')
     finally:
         db.close()
+
+

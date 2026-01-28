@@ -1,0 +1,71 @@
+{% extends "base_web.html" %}
+
+{% block title %}
+    {{ title }} | Mi Proyecto
+{% endblock %}
+
+{% block content %}
+<div class="flash-container" style="position: absolute; top: 100px; width: 100%; z-index: 9999; pointer-events: none;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                {% if flash_message %}
+                <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert" style="pointer-events: auto;">
+                    <i class="fa fa-check-circle me-2"></i> {{ flash_message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container h-100" style="margin-top: 150px;">
+    <div class="row justify-content-center align-items-center h-100">
+        <div class="col-md-5 col-lg-4">
+            <div class="card shadow-lg p-3">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">Iniciar Sesión</h3>
+                    
+                    {% if error %}
+                    <div class="alert alert-danger p-2 small text-center" role="alert">
+                        <i class="fa fa-exclamation-triangle"></i> {{ error }}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="/student_login">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ last_email if last_email else '' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <small>¿No tienes cuenta? <a href="/register">Regístrate aquí</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/web/vendor/jquery/jquery.min.js"></script>
+<script>
+    $(document).ready(function() {
+        var $alert = $('.flash-container .alert');
+        if ($alert.length > 0) {
+            setTimeout(function() {
+                $alert.fadeTo(500, 0).slideUp(500, function(){
+                    $(this).remove(); 
+                });
+            }, 4000);
+        }
+    });
+</script>
+{% endblock %}

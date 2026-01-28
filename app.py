@@ -4,7 +4,7 @@ from core.views import render_template
 from dashboard.views import dashboard
 from authentication.views import login, logout
 from users.views import users_list, users_create, users_edit, users_delete
-from web.views import web
+from web.views import web, student_enrollment_self, student_login, student_logout, student_register
 
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
@@ -152,8 +152,6 @@ def app(environ, start_response):
     elif path == '/transactions/enrollments/create':
         status, headers, body_content = enrollments_create(environ)
 
-
-
     # --- RUTAS DE PROGRAMAS ACADÉMICOS ---
     elif path == '/academic/programs/list':
         status, headers, body_content = programs_list(environ)
@@ -169,6 +167,8 @@ def app(environ, start_response):
         status, headers, body_content = programs_delete(environ, int(prog_delete_match.group(1)))
 
     # --- RUTAS HOME & AUTH ---
+    elif path == '/web/enrollments/create':
+        status, headers, body_content = student_enrollment_self(environ)
     elif path == '/':
         status, headers, body_content = web(environ)
     elif path == '/dashboard':
@@ -177,6 +177,12 @@ def app(environ, start_response):
         status, headers, body_content = login(environ)
     elif path == '/logout':
         status, headers, body_content = logout(environ)
+    elif path == '/student_login':
+        status, headers, body_content = student_login(environ)
+    elif path == '/student_logout':
+        status, headers, body_content = student_logout(environ)
+    elif path == '/register':
+        status, headers, body_content = student_register(environ)
     
     # --- 404 NOT FOUND ---
     else:

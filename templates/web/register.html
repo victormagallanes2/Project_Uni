@@ -1,0 +1,102 @@
+{% extends "base_web.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            
+            {% if flash_message %}
+            <div class="alert alert-warning alert-dismissible fade show border-0 shadow mb-4" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i> {{ flash_message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <div class="d-inline-block p-3 rounded-circle bg-primary bg-opacity-10 text-primary mb-3">
+                            <i class="fas fa-user-plus fa-2x"></i>
+                        </div>
+                        <h2 class="fw-bold">Registro de Alumno</h2>
+                        <p class="text-muted">Crea tu cuenta para comenzar tu inscripción</p>
+                    </div>
+
+                    <form method="POST" action="/register" id="registerForm">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Cédula de Identidad</label>
+                            <div class="input-group shadow-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-id-card text-muted"></i></span>
+                                <input type="text" name="national_id" class="form-control border-start-0" placeholder="V-12345678" required>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold small text-uppercase">Nombres</label>
+                                <input type="text" name="name" class="form-control shadow-sm" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold small text-uppercase">Apellidos</label>
+                                <input type="text" name="last_name" class="form-control shadow-sm" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-uppercase">Correo Electrónico</label>
+                            <input type="email" name="email" class="form-control shadow-sm" placeholder="usuario@ejemplo.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-uppercase">Contraseña</label>
+                            <input type="password" name="password" id="pass1" class="form-control shadow-sm" minlength="8" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold small text-uppercase">Confirmar Contraseña</label>
+                            <input type="password" id="pass2" class="form-control shadow-sm" required>
+                            <div id="passError" class="text-danger small mt-2 d-none">
+                                <i class="fas fa-times-circle"></i> Las contraseñas no coinciden.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow mt-2" id="btnSubmit">
+                            CREAR CUENTA
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <p class="mb-0 text-muted small">¿Ya tienes una cuenta registrada?</p>
+                        <a href="/login" class="fw-bold text-decoration-none">Inicia sesión aquí</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const p1 = document.getElementById('pass1');
+    const p2 = document.getElementById('pass2');
+    const err = document.getElementById('passError');
+    const btn = document.getElementById('btnSubmit');
+
+    function checkPasswords() {
+        if (p2.value.length > 0 && p1.value !== p2.value) {
+            err.classList.remove('d-none');
+            btn.disabled = true;
+        } else {
+            err.classList.add('d-none');
+            btn.disabled = false;
+        }
+    }
+
+    p1.addEventListener('input', checkPasswords);
+    p2.addEventListener('input', checkPasswords);
+
+    document.getElementById('registerForm').onsubmit = function() {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando registro...';
+    };
+</script>
+{% endblock %}
