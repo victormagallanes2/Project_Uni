@@ -44,27 +44,42 @@ def student_enrollment_self(environ):
     session = environ['beaker.session']
     user_id = int(session.get('user_id'))
     
-    # 1. MOVER ESTO AQUÍ: Inicializar request al principio
     request = Request(environ)
     
     try:
         student = db.query(User).filter(User.id == user_id).first()
         
-        # Bloqueo de seguridad: Si ya tiene programa, no entra al formulario
+        # Verificar inscripción activa
         if student.program_id:
             session['flash_message'] = "⚠️ Ya tienes una inscripción activa."
-            # OJO: Cambia esta redirección a tu Dashboard para que no sea un bucle
-            return redirect('/') 
+            return redirect('/')
 
-        # 2. USAR request.method
+        # Obtener períodos con inscripción abierta
+        current_date = date.today()
+        active_terms = db.query(AcademicTerm).filter(
+            AcademicTerm.enrollment_start_date <= current_date,
+            AcademicTerm.enrollment_end_date >= current_date
+        ).all()
+
         if request.method == 'POST':
             program_id = request.form.get('program_id', type=int)
+            term_id = request.form.get('term_id', type=int)  # <--- NUEVO
             bank_ref = request.form.get('bank_reference')
             file_item = request.files.get('voucher')
 
-            # Validación: ¿Hay archivo?
+            # Validaciones
+            if not term_id:
+                session['flash_message'] = "❌ Debe seleccionar un período académico."
+                return redirect('/web/enrollments/create')
+
             if not file_item or file_item.filename == '':
                 session['flash_message'] = "❌ Debes adjuntar la foto del comprobante."
+                return redirect('/web/enrollments/create')
+
+            # Verificar que el período esté activo
+            selected_term = db.query(AcademicTerm).get(term_id)
+            if not (selected_term.enrollment_start_date <= current_date <= selected_term.enrollment_end_date):
+                session['flash_message'] = "❌ El período seleccionado no está disponible para inscripción."
                 return redirect('/web/enrollments/create')
 
             fee = db.query(FeeSchedule).filter(FeeSchedule.program_id == program_id).first()
@@ -72,22 +87,20 @@ def student_enrollment_self(environ):
                 session['flash_message'] = "❌ Este programa no tiene costo configurado."
                 return redirect('/web/enrollments/create')
             
-            # Guardar archivo con nombre único
+            # Guardar archivo
             ext = os.path.splitext(file_item.filename)[1].lower()
             filename = secure_filename(f"STU_{user_id}_REF_{bank_ref}{ext}")
-            
-            # Asegúrate que UPLOAD_FOLDER esté definido arriba de tu archivo
             file_path = os.path.join(UPLOAD_FOLDER, filename)
             file_item.save(file_path)
 
-            # Lógica de asignación de sección
-            section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
-                .filter(Subject.program_id == program_id)\
-                .filter(Section.capacity > 0)\
-                .order_by(asc(Section.section_id)).with_for_update().first()
+            # Buscar sección con cupo para este período
+            section = db.query(Section).filter(
+                Section.term_id == term_id,  # <--- FILTRAR POR PERÍODO
+                Section.capacity > 0
+            ).order_by(asc(Section.section_id)).with_for_update().first()
 
             if not section:
-                session['flash_message'] = "❌ Cupos agotados para este programa."
+                session['flash_message'] = "❌ Cupos agotados para este período."
                 return redirect('/web/enrollments/create')
 
             # --- Transacción ---
@@ -102,32 +115,41 @@ def student_enrollment_self(environ):
             )
             db.add(new_payment)
 
-            for sub in db.query(Subject).filter(Subject.program_id == program_id).all():
-                db.add(Enrollment(
+            # Inscribir materias
+            subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
+            for sub in subjects:
+                enrollment = Enrollment(
                     student_user_id=user_id,
                     section_id=section.section_id,
                     subject_id=sub.subject_id,
-                    enrollment_date=datetime.now().date()
-                ))
+                    term_id=term_id,  # <--- NUEVO
+                    enrollment_date=datetime.now().date(),
+                    status='Pending'  # Pendiente hasta verificar pago
+                )
+                db.add(enrollment)
 
             section.capacity -= 1
             student.program_id = program_id
             db.commit()
 
-            session['flash_message'] = "✅ ¡Inscripción exitosa! Pendiente de validación."
+            session['flash_message'] = "✅ ¡Solicitud de inscripción enviada! Pendiente de validación."
             return redirect('/web/enrollments/create')
 
-        # GET
+        # GET - Mostrar formulario
         programs = db.query(Program).all()
+        
         return "200 OK", [('Content-type', 'text/html')], [
             render_template('web/enrollment_self.html', 
                            student=student, 
                            programs=programs,
+                           terms=active_terms,  # <--- NUEVO: Pasar períodos al template
                            flash_message=session.pop('flash_message', None)).encode('utf-8')
         ]
+        
     except Exception as e:
         db.rollback()
-        print(f"ERROR REAL EN INSCRIPCIÓN: {str(e)}") # ESTO ES VITAL PARA EL DEBUG
+        print(f"ERROR EN INSCRIPCIÓN: {str(e)}")
+        session['flash_message'] = "❌ Error en el proceso. Contacte al administrador."
         return redirect('/web/enrollments/create')
     finally:
         db.close()

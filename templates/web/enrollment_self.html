@@ -1,98 +1,65 @@
-{% extends "base_web.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-7">
-            
-            {% if flash_message %}
-            <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-                <i class="fas fa-info-circle me-2"></i> {{ flash_message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            {% endif %}
-
-            <div class="card shadow-lg border-0">
-                <div class="card-header bg-dark text-white p-4 text-center">
-                    <h3 class="mb-0">Proceso de Inscripción</h3>
-                    <small class="text-info">Asegúrate de tener tu comprobante a mano</small>
-                </div>
-                
-                <div class="card-body p-4">
-                    <form method="POST" action="/web/enrollments/create" enctype="multipart/form-data" id="enrollForm">
-                        
-                        <div class="d-flex align-items-center mb-4 p-3 bg-light rounded">
-                            <div class="flex-shrink-0">
-                                <div class="bg-primary text-white rounded-circle p-3">
-                                    <i class="fas fa-user-graduate fa-2x"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h5 class="mb-0">{{ student.last_name }}, {{ student.name }}</h5>
-                                <span class="text-muted">C.I: {{ student.national_id }}</span>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">¿Qué carrera deseas cursar?</label>
-                            <select name="program_id" class="form-select border-primary" required>
-                                <option value="">Selecciona una opción...</option>
-                                {% for p in programs %}
-                                    <option value="{{ p.program_id }}">{{ p.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Nro. de Referencia</label>
-                                <input type="text" name="bank_reference" class="form-control" placeholder="Ej: 847291" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Foto del Voucher</label>
-                                <input type="file" name="voucher" id="voucherInput" class="form-control" accept="image/*" required>
-                            </div>
-                        </div>
-
-                        <div id="previewContainer" class="text-center mb-4 d-none">
-                            <label class="text-muted d-block mb-2 small">Vista previa del comprobante:</label>
-                            <img id="imagePreview" src="#" alt="Vista previa" class="img-thumbnail" style="max-height: 200px;">
-                        </div>
-
-                        <button type="submit" class="btn btn-primary btn-lg w-100 shadow" id="btnSubmit">
-                            <i class="fas fa-paper-plane me-2"></i> Enviar Inscripción
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.getElementById('voucherInput').onchange = function (evt) {
-        const [file] = this.files;
-        const preview = document.getElementById('imagePreview');
-        const container = document.getElementById('previewContainer');
+<div class="container mt-4">
+    <h2>Formulario de Inscripción</h2>
+    <p>Bienvenido, {{ student.name }} {{ student.last_name }}</p>
+    
+    {% if flash_message %}
+    <div class="alert alert-info">{{ flash_message }}</div>
+    {% endif %}
+    
+    <form method="POST" enctype="multipart/form-data" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
-        if (file) {
-            // Validar tamaño (máx 2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                alert("El archivo es muy grande. Máximo 2MB.");
-                this.value = "";
-                container.classList.add('d-none');
-                return;
-            }
-            
-            preview.src = URL.createObjectURL(file);
-            container.classList.remove('d-none');
-        }
-    };
-
-    // Evitar doble envío al hacer click
-    document.getElementById('enrollForm').onsubmit = function() {
-        document.getElementById('btnSubmit').disabled = true;
-        document.getElementById('btnSubmit').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
-    };
-</script>
+        <div class="form-group mb-3">
+            <label for="program_id">Seleccione el Programa:</label>
+            <select name="program_id" id="program_id" class="form-control" required>
+                <option value="">Elija un programa...</option>
+                {% for program in programs %}
+                <option value="{{ program.program_id }}">{{ program.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- NUEVO: Selector de período para estudiantes -->
+        <div class="form-group mb-3">
+            <label for="term_id">Período Académico:</label>
+            <select name="term_id" id="term_id" class="form-control" required>
+                <option value="">Seleccione período...</option>
+                {% for term in terms %}
+                <option value="{{ term.term_id }}">
+                    {{ term.name }} ({{ term.start_date.strftime('%d/%m/%Y') }} - {{ term.end_date.strftime('%d/%m/%Y') }})
+                </option>
+                {% endfor %}
+            </select>
+            <small class="form-text text-muted">
+                Períodos disponibles para inscripción según fechas establecidas.
+            </small>
+        </div>
+        
+        <div class="form-group mb-3">
+            <label for="bank_reference">Referencia Bancaria:</label>
+            <input type="text" name="bank_reference" id="bank_reference" class="form-control" 
+                   placeholder="Número de referencia del pago" required>
+        </div>
+        
+        <div class="form-group mb-3">
+            <label for="voucher">Comprobante de Pago:</label>
+            <input type="file" name="voucher" id="voucher" class="form-control" 
+                   accept="image/*,.pdf" required>
+            <small class="form-text text-muted">
+                Adjunte una imagen clara del comprobante de pago (formato JPG, PNG o PDF)
+            </small>
+        </div>
+        
+        <div class="alert alert-info">
+            <strong>Importante:</strong> Su inscripción quedará pendiente de verificación 
+            por parte de la administración. Recibirá un correo de confirmación una vez aprobada.
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
+        <a href="/" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
 {% endblock %}

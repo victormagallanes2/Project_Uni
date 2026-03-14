@@ -1,8 +1,8 @@
 """Esquema Inicial
 
-Revision ID: 48b91ac75dbb
+Revision ID: bbd98bee658b
 Revises: 
-Create Date: 2026-01-19 11:59:45.203005
+Create Date: 2026-03-07 11:08:56.131100
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '48b91ac75dbb'
+revision: str = 'bbd98bee658b'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -107,13 +107,15 @@ def upgrade() -> None:
     sa.Column('student_user_id', sa.Integer(), nullable=False),
     sa.Column('section_id', sa.Integer(), nullable=False),
     sa.Column('subject_id', sa.Integer(), nullable=False),
+    sa.Column('term_id', sa.Integer(), nullable=False),
     sa.Column('enrollment_date', sa.Date(), nullable=False),
     sa.Column('status', sa.String(length=50), nullable=True),
     sa.ForeignKeyConstraint(['section_id'], ['sections.section_id'], ),
     sa.ForeignKeyConstraint(['student_user_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['subject_id'], ['subjects.subject_id'], ),
+    sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
     sa.PrimaryKeyConstraint('enrollment_id'),
-    sa.UniqueConstraint('student_user_id', 'section_id', 'subject_id', name='uq_student_section_subject')
+    sa.UniqueConstraint('student_user_id', 'section_id', 'subject_id', 'term_id', name='uq_student_section_subject_term')
     )
     op.create_table('payments',
     sa.Column('payment_id', sa.Integer(), nullable=False),
