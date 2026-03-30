@@ -1,119 +1,106 @@
 {% extends "base.html" %}
 
-{% block head %}
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
-<style>
-    .select2-container--bootstrap-5 .select2-selection { border-radius: 20px; padding-left: 15px; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container mt-4">
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-4">
-            <h2 class="mb-0">Control de Inscritos</h2>
-        </div>
-        
-        <div class="col-md-5">
-            <select id="table_search" class="form-select">
-                <option value="">🔍 Buscar alumno inscrito...</option>
-                {% for e in enrollments %}
-                    <option value="row-{{ e.student_user_id }}">
-                        {{ e.student.national_id }} - {{ e.student.last_name }}, {{ e.student.name }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="col-md-3 text-end">
-            <a href="/transactions/enrollments/create" class="btn btn-success rounded-pill">
-                <i class="fas fa-plus"></i> Nueva Inscripción
-            </a>
-        </div>
-    </div>
-
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0" id="enrollmentTable">
-                <thead class="table-light">
-                    <tr>
-                        <th>Estudiante</th>
-                        <th>Programa</th>
-                        <th>Sección</th>
-                        <th>Referencia</th>
-                        <th>Voucher</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in enrollments %}
-                        {% set prog = e.section.subjects[0].subject.program %}
-                        {% set pay = payment_map.get((e.student_user_id, prog.program_id)) %}
-                        
-                        <tr id="row-{{ e.student_user_id }}">
-                            <td>
-                                <strong>{{ e.student.last_name }}, {{ e.student.name }}</strong><br>
-                                <small class="text-muted">{{ e.student.national_id }}</small>
-                            </td>
-                            <td>{{ prog.name }}</td>
-                            <td><span class="badge bg-secondary">{{ e.section.section_code }}</span></td>
-                            <td><code>{{ pay.bank_reference if pay else '---' }}</code></td>
-                            <td>
-                                {% if pay and pay.proof_url %}
-                                    <a href="/static/uploads/payments/{{ pay.proof_url }}" target="_blank" class="btn btn-sm btn-info text-white">
-                                        <i class="fas fa-image"></i> Ver
-                                    </a>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge {{ 'bg-success' if pay.status == 'Approved' else 'bg-warning' }}">
-                                    {{ pay.status }}
-                                </span>
-                            </td>
-                            <td>
-                                <a href="/transactions/enrollments/delete/{{ e.enrollment_id }}" 
-                                   class="btn btn-sm btn-danger rounded-pill px-3"
-                                   onclick="return confirm('¿Estás seguro de anular esta inscripción? El cupo será devuelto a la sección.');">
-                                    <i class="fas fa-trash-alt me-1"></i> Eliminar
-                                </a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <div class="d-flex align-items-center">
+                        <h6 class="mb-0">Listado de Inscripciones</h6>
+                        <a href="/transactions/enrollments/create" class="btn btn-primary btn-sm ms-auto">Nueva Inscripción</a>
+                    </div>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    {% if flash_message %}
+                    <div class="alert alert-success mx-3">{{ flash_message }}</div>
+                    {% endif %}
+                    
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estudiante</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Programa</th>
+                                    <!-- ===== SOLO AGREGAMOS ESTA COLUMNA ===== -->
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Período</th>
+                                    <!-- ===== FIN COLUMNA NUEVA ===== -->
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Pago</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Comprobante</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enrollment in enrollments %}
+                                {% set payment = payment_map.get((enrollment.student_user_id, enrollment.subject.program_id)) %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex px-2 py-1">
+                                            <div class="d-flex flex-column justify-content-center">
+                                                <h6 class="mb-0 text-sm">{{ enrollment.student.name }} {{ enrollment.student.last_name }}</h6>
+                                                <p class="text-xs text-secondary mb-0">{{ enrollment.student.national_id }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ enrollment.subject.program.name if enrollment.subject and enrollment.subject.program else 'N/A' }}</p>
+                                    </td>
+                                    <!-- ===== SOLO AGREGAMOS ESTA CELDA ===== -->
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ enrollment.term.name if enrollment.term else 'N/A' }}</p>
+                                        <p class="text-xs text-secondary mb-0">
+                                            {% if enrollment.term %}
+                                                {{ enrollment.term.start_date.strftime('%d/%m/%Y') if enrollment.term.start_date else '' }} - {{ enrollment.term.end_date.strftime('%d/%m/%Y') if enrollment.term.end_date else '' }}
+                                            {% endif %}
+                                        </p>
+                                    </td>
+                                    <!-- ===== FIN CELDA NUEVA ===== -->
+                                    <td>
+                                        {% if payment %}
+                                            {% if payment.status == 'Approved' %}
+                                                <span class="badge bg-success">Aprobado</span>
+                                            {% elif payment.status == 'Pending Verification' %}
+                                                <span class="badge bg-warning">Pendiente</span>
+                                            {% elif payment.status == 'Rejected' %}
+                                                <span class="badge bg-danger">Rechazado</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ payment.status }}</span>
+                                            {% endif %}
+                                            <br>
+                                            <small class="text-xs">Ref: {{ payment.bank_reference }}</small>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Sin pago</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if payment and payment.proof_url %}
+                                            <a href="/static/uploads/payments/{{ payment.proof_url }}" target="_blank" class="btn btn-link btn-sm">
+                                                <i class="fas fa-file-image"></i> Ver comprobante
+                                            </a>
+                                        {% else %}
+                                            <span class="text-secondary">No adjunto</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/transactions/enrollments/{{ enrollment.enrollment_id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('¿Está seguro de eliminar esta inscripción?')">
+                                            Eliminar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <p class="text-secondary mb-0">No hay inscripciones registradas</p>
+                                        <a href="/transactions/enrollments/create" class="btn btn-primary btn-sm mt-3">Crear primera inscripción</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<script>
-$(document).ready(function() {
-    // Inicializar Select2
-    $('#table_search').select2({
-        theme: 'bootstrap-5',
-        width: '100%'
-    });
-
-    // Lógica para filtrar la tabla al seleccionar
-    $('#table_search').on('select2:select', function (e) {
-        var targetId = e.params.data.id;
-        
-        // Opción A: Resaltar y hacer scroll hacia el alumno
-        $('tr').removeClass('table-primary');
-        $('#' + targetId).addClass('table-primary');
-        $('html, body').animate({
-            scrollTop: $("#" + targetId).offset().top - 100
-        }, 500);
-
-        // Opción B (Si prefieres filtrar y ocultar el resto):
-        /*
-        $('#enrollmentTable tbody tr').hide();
-        $('#' + targetId).show();
-        */
-    });
-});
-</script>
 {% endblock %}

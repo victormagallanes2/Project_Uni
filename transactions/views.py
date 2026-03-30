@@ -289,6 +289,7 @@ def enrollment_choose_sections(environ, student_user_id):
 def enrollments_list(environ):
     db = SessionLocal()
     session = environ['beaker.session']
+    flash_message = session.pop('flash_message', None)
     
     try:
         # Agrupamos por estudiante para tener una fila por proceso de inscripción
@@ -300,7 +301,8 @@ def enrollments_list(environ):
         context = {
             'enrollments': enrollments,
             'payment_map': payment_map,
-            'user_name': session.get('user_name')
+            'user_name': session.get('user_name'),
+            'flash_message': flash_message
         }
         
         return "200 OK", [('Content-type', 'text/html')], [
@@ -325,110 +327,11 @@ def parse_form_data_with_files(environ):
 
 @login_required
 def enrollments_create(environ):
-    """Vista para inscripción manual de estudiantes (solo administradores)"""
-    
-    print("\n" + "="*50)
-    print("📍 ENROLLMENTS_CREATE - INICIO")
-    print("="*50)
-    
     db = SessionLocal()
     session = environ['beaker.session']
     
     try:
-        # --- VERIFICACIÓN INICIAL DE LA BASE DE DATOS ---
-        print("\n📊 VERIFICACIÓN DE BASE DE DATOS:")
-        
-        # 1. Verificar todas las tablas y sus registros
-        tables = ['users', 'user_types', 'programs', 'academic_terms', 'subjects', 'sections']
-        for table in tables:
-            try:
-                count = db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
-                print(f"  - Tabla {table}: {count} registros")
-            except Exception as e:
-                print(f"  - Tabla {table}: ERROR - {e}")
-        
-        # 2. Verificar tipos de usuario
-        print("\n👥 TIPOS DE USUARIO:")
-        user_types = db.query(UserType).all()
-        if user_types:
-            for ut in user_types:
-                count = db.query(User).filter(User.user_type_id == ut.id).count()
-                print(f"  - Tipo {ut.id}: {ut.name} - {count} usuarios")
-        else:
-            print("  ⚠️ No hay tipos de usuario definidos")
-        
-        # 3. Verificar TODOS los usuarios (sin filtro)
-        print("\n👤 TODOS LOS USUARIOS:")
-        all_users = db.query(User).all()
-        print(f"  Total usuarios en BD: {len(all_users)}")
-        for user in all_users[:5]:  # Mostrar primeros 5
-            user_type_name = user.user_type.name if user.user_type else "SIN TIPO"
-            print(f"  - ID: {user.id}, Tipo: {user.user_type_id} ({user_type_name}), "
-                  f"Cédula: {user.national_id}, Nombre: {user.name} {user.last_name}")
-        
-        # 4. Verificar estudiantes (tipo 3)
-        print("\n🎓 ESTUDIANTES (user_type_id = 3):")
-        students_count = db.query(User).filter(User.user_type_id == 3).count()
-        print(f"  Total estudiantes: {students_count}")
-        
-        if students_count > 0:
-            students_sample = db.query(User).filter(User.user_type_id == 3).limit(3).all()
-            for s in students_sample:
-                print(f"  - {s.national_id} - {s.name} {s.last_name} (ID: {s.id})")
-        else:
-            print("  ⚠️ NO HAY ESTUDIANTES con user_type_id = 3")
-            
-            # Sugerencia: crear estudiante de prueba
-            print("\n💡 SUGERENCIA: Ejecuta este script para crear un estudiante de prueba:")
-            print("""
-from db import SessionLocal
-from users.models import User, UserType
-import bcrypt
-
-db = SessionLocal()
-
-# Crear tipo estudiante si no existe
-if not db.query(UserType).filter(UserType.id == 3).first():
-    db.add(UserType(id=3, name="Estudiante"))
-    db.commit()
-    print("✅ Tipo estudiante creado")
-
-# Crear estudiante de prueba
-student = User(
-    national_id="V-12345678",
-    name="Juan",
-    last_name="Pérez",
-    email="juan.perez@test.com",
-    password=bcrypt.hashpw("123456".encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
-    user_type_id=3
-)
-db.add(student)
-db.commit()
-print("✅ Estudiante creado")
-db.close()
-""")
-        
-        # 5. Verificar programas
-        print("\n📚 PROGRAMAS:")
-        programs = db.query(Program).all()
-        print(f"  Total programas: {len(programs)}")
-        for p in programs:
-            subjects_count = db.query(Subject).filter(Subject.program_id == p.program_id).count()
-            print(f"  - {p.name} (ID: {p.program_id}) - {subjects_count} materias")
-        
-        # 6. Verificar períodos académicos
-        print("\n📅 PERÍODOS ACADÉMICOS:")
-        terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
-        print(f"  Total períodos: {len(terms)}")
-        for t in terms:
-            print(f"  - {t.name} (ID: {t.term_id}): {t.start_date} a {t.end_date}")
-        
-        print("\n" + "="*50)
-        
-        # --- PROCESAMIENTO POST ---
         if environ['REQUEST_METHOD'] == 'POST':
-            print("\n📝 PROCESANDO POST")
-            
             request = Request(environ)
             
             target_student_id = request.form.get('student_id', type=int)
@@ -437,68 +340,43 @@ db.close()
             bank_ref = request.form.get('bank_reference')
             file_item = request.files.get('voucher')
             
-            print(f"  Datos recibidos:")
-            print(f"    - student_id: {target_student_id}")
-            print(f"    - program_id: {program_id}")
-            print(f"    - term_id: {term_id}")
-            print(f"    - bank_ref: {bank_ref}")
-            print(f"    - file: {file_item.filename if file_item else 'None'}")
-            
-            # Validar existencia del estudiante
             student = db.query(User).filter(User.id == target_student_id).first()
             if not student:
-                print(f"  ❌ Estudiante no encontrado: {target_student_id}")
                 session['flash_message'] = "Error: Estudiante no seleccionado o no encontrado."
                 return redirect('/transactions/enrollments/create')
             
-            print(f"  ✅ Estudiante encontrado: {student.name} {student.last_name}")
-            
-            # Validar programa
             program = db.query(Program).filter(Program.program_id == program_id).first()
             if not program:
-                print(f"  ❌ Programa no encontrado: {program_id}")
                 session['flash_message'] = "Error: Programa no válido."
                 return redirect('/transactions/enrollments/create')
             
-            # Validar período
             term = db.query(AcademicTerm).filter(AcademicTerm.term_id == term_id).first()
             if not term:
-                print(f"  ❌ Período no encontrado: {term_id}")
                 session['flash_message'] = "Error: Período académico no válido."
                 return redirect('/transactions/enrollments/create')
             
-            # Buscar el costo configurado
             fee = db.query(FeeSchedule).filter(FeeSchedule.program_id == program_id).first()
             if not fee:
-                print(f"  ❌ FeeSchedule no encontrado para programa {program_id}")
                 session['flash_message'] = "Error: El programa no tiene un costo configurado."
                 return redirect('/transactions/enrollments/create')
             
-            # Procesar el archivo
             filename = None
             if file_item and file_item.filename:
                 ext = os.path.splitext(file_item.filename)[1]
                 filename = secure_filename(f"V_STU{target_student_id}_{bank_ref}{ext}")
                 file_path = os.path.join(UPLOAD_FOLDER, filename)
                 file_item.save(file_path)
-                print(f"  ✅ Archivo guardado: {filename}")
             
-            # Buscar sección con cupo
             section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
                 .filter(Subject.program_id == program_id)\
                 .filter(Section.capacity > 0)\
                 .order_by(asc(Section.section_id)).with_for_update().first()
             
             if not section:
-                print(f"  ❌ No hay cupos disponibles para programa {program_id}")
                 session['flash_message'] = "No hay cupos disponibles para este programa."
                 return redirect('/transactions/enrollments/create')
             
-            print(f"  ✅ Sección encontrada: {section.section_code} (cupo: {section.capacity})")
-            
-            # --- TRANSACCIÓN ---
             try:
-                # Registrar pago
                 new_payment = Payment(
                     student_user_id=target_student_id,
                     program_id=program_id,
@@ -507,14 +385,11 @@ db.close()
                     bank_reference=bank_ref,
                     proof_url=filename,
                     payment_date=datetime.now(),
-                    status='Approved' 
+                    status='Pending Verification'
                 )
                 db.add(new_payment)
-                print(f"  ✅ Pago registrado")
                 
-                # Inscribir materias
                 subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
-                print(f"  📚 Materias a inscribir: {len(subjects)}")
                 
                 for sub in subjects:
                     enrollment = Enrollment(
@@ -526,48 +401,23 @@ db.close()
                         status='Registered'
                     )
                     db.add(enrollment)
-                    print(f"    - {sub.code} - {sub.name}")
                 
-                # Actualizar cupo y programa del estudiante
                 section.capacity -= 1
                 student.program_id = program_id
                 
                 db.commit()
-                print(f"  ✅ TRANSACCIÓN COMPLETADA")
                 
                 session['flash_message'] = f"¡Éxito! {student.name} {student.last_name} inscrito en {program.name} para {term.name}"
                 
             except Exception as e:
                 db.rollback()
-                print(f"  ❌ ERROR EN TRANSACCIÓN: {str(e)}")
                 session['flash_message'] = f"Error al procesar la inscripción: {str(e)}"
             
             return redirect('/transactions/enrollments/list')
         
-        # --- GET - Mostrar formulario ---
-        print("\n📋 CARGANDO FORMULARIO GET")
-        
-        # Obtener estudiantes (SOLO tipo 3)
         available_students = db.query(User).filter(User.user_type_id == 4).all()
-        print(f"  Estudiantes encontrados: {len(available_students)}")
-        
-        # Obtener programas
         programs = db.query(Program).all()
-        print(f"  Programas encontrados: {len(programs)}")
-        
-        # Obtener períodos
         terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
-        print(f"  Períodos encontrados: {len(terms)}")
-        
-        # Verificar si hay datos para Select2
-        if available_students:
-            print(f"\n  📋 Datos para Select2 (primeros 5):")
-            for s in available_students[:5]:
-                print(f"    - ID: {s.id} | {s.national_id} - {s.name} {s.last_name}")
-        else:
-            print("\n  ⚠️ ADVERTENCIA: No hay estudiantes para mostrar en Select2")
-        
-        print("="*50 + "\n")
         
         context = {
             'students': available_students,
@@ -583,14 +433,10 @@ db.close()
         
     except Exception as e:
         db.rollback()
-        print(f"\n❌ ERROR GENERAL: {str(e)}")
-        import traceback
-        traceback.print_exc()
         session['flash_message'] = f"Error crítico: {str(e)}"
         return redirect('/transactions/enrollments/list')
     finally:
         db.close()
-        print("📌 ENROLLMENTS_CREATE - FIN\n")
 
 @login_required
 def enrollments_delete(environ, enrollment_id):
