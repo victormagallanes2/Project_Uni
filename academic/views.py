@@ -7,14 +7,11 @@ from urllib.parse import parse_qs
 from db import SessionLocal
 from users.models import User # Para obtener la lista de profesores
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, parse_form_data, redirect
-from academic.models import Section, Subject, AcademicTerm, SectionSubject, Program
+from academic.models import Section, Subject, AcademicTerm, SectionSubject, Program, ProgramSubject
 from sqlalchemy.orm import joinedload
+from werkzeug.wrappers import Request
 
-# =========================================================================
-# CRUD de Períodos Académicos (AcademicTerm)
-# =========================================================================
 
-# C: Create (Crear)
 @login_required
 def academic_terms_create(environ):
     method = environ.get('REQUEST_METHOD', 'GET')
@@ -619,3 +616,141 @@ def programs_delete(environ, program_id):
         return '302 Found', [('Location', '/academic/programs/list')], [b'Redirecting...']
     finally:
         db.close()
+
+@login_required
+def program_subjects_list(environ):
+    """Lista la configuración de materias por período para cada programa"""
+    db = SessionLocal()
+    session = environ['beaker.session']
+    flash_message = session.pop('flash_message', None)
+    
+    try:
+        programs = db.query(Program).all()
+        
+        # Para cada programa, obtener materias agrupadas por período
+        programs_data = []
+        for program in programs:
+            program_subjects = db.query(ProgramSubject).options(
+                joinedload(ProgramSubject.subject)
+            ).filter(
+                ProgramSubject.program_id == program.program_id
+            ).order_by(
+                ProgramSubject.period_number,
+                ProgramSubject.subject_id
+            ).all()
+            
+            # Agrupar por período
+            subjects_by_period = {}
+            for ps in program_subjects:
+                period = ps.period_number
+                if period not in subjects_by_period:
+                    subjects_by_period[period] = []
+                subjects_by_period[period].append(ps.subject)
+            
+            programs_data.append({
+                'program': program,
+                'subjects_by_period': subjects_by_period,
+                'total_subjects': len(program_subjects),
+                'max_period': max(subjects_by_period.keys()) if subjects_by_period else 0
+            })
+        
+        context = {
+            'programs_data': programs_data,
+            'flash_message': flash_message,
+            'user_name': session.get('user_name')
+        }
+        
+        html = render_template('academic/program_subjects_list.html', **context)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        
+    finally:
+        db.close()
+
+
+@login_required
+def program_subjects_config(environ, program_id):
+    """Configura qué materias van en cada período del plan"""
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    
+    try:
+        program = db.query(Program).filter(Program.program_id == program_id).first()
+        if not program:
+            session['flash_message'] = "Programa no encontrado"
+            return redirect('/academic/program-subjects/list')
+        
+        # Obtener todas las materias del programa
+        subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
+        
+        # Obtener configuración actual
+        current_config = {}
+        existing = db.query(ProgramSubject).filter(
+            ProgramSubject.program_id == program_id
+        ).all()
+        
+        for ps in existing:
+            current_config[ps.subject_id] = ps.period_number
+        
+        if environ['REQUEST_METHOD'] == 'POST':
+            request = Request(environ)
+            
+            # Limpiar configuración actual
+            db.query(ProgramSubject).filter(
+                ProgramSubject.program_id == program_id
+            ).delete()
+            
+            # Guardar nueva configuración
+            for subject in subjects:
+                period = request.form.get(f'period_{subject.subject_id}')
+                if period and period.isdigit():
+                    ps = ProgramSubject(
+                        program_id=program_id,
+                        subject_id=subject.subject_id,
+                        period_number=int(period),
+                        is_mandatory=True
+                    )
+                    db.add(ps)
+            
+            db.commit()
+            session['flash_message'] = f"Plan de estudios de {program.name} actualizado"
+            return redirect('/academic/program-subjects/list')
+        
+        max_period = 8  # Máximo períodos esperados
+        context = {
+            'program': program,
+            'subjects': subjects,
+            'current_config': current_config,
+            'max_period': max_period,
+            'csrf_token': session['csrf_token']
+        }
+        
+        html = render_template('academic/program_subjects_config.html', **context)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error: {e}")
+        session['flash_message'] = f"Error: {str(e)}"
+        return redirect('/academic/program-subjects/list')
+    finally:
+        db.close()
+
+
+@login_required
+def program_subjects_clear(environ, program_id):
+    """Limpia toda la configuración de un programa"""
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    try:
+        db.query(ProgramSubject).filter(ProgramSubject.program_id == program_id).delete()
+        db.commit()
+        session['flash_message'] = "Configuración eliminada"
+    except Exception as e:
+        db.rollback()
+        session['flash_message'] = f"Error: {str(e)}"
+    
+    return redirect('/academic/program-subjects/list')

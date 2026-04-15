@@ -10,7 +10,7 @@ from sqlalchemy import func, asc
 
 from db import SessionLocal 
 from fees.models import FeeConcept, Payment
-from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program
+from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program, StudentGrade, ProgramSubject
 from users.models import User 
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, redirect, parse_form_data
 from transactions.models import Enrollment
@@ -19,6 +19,55 @@ from fees.models import FeeSchedule
 from sqlalchemy import or_
 from sqlalchemy import text
 from users.models import User, UserType 
+
+
+# transactions/views.py - Agregar
+
+def api_available_subjects(environ):
+    """API para obtener materias disponibles para un estudiante"""
+    from urllib.parse import parse_qs
+    import json
+    
+    db = SessionLocal()
+    
+    try:
+        query_string = environ.get('QUERY_STRING', '')
+        params = parse_qs(query_string)
+        
+        student_id = params.get('student_id', [None])[0]
+        program_id = params.get('program_id', [None])[0]
+        
+        if not student_id or not program_id:
+            result = {'error': 'Faltan parámetros', 'subjects': []}
+            return "400 Bad Request", [('Content-type', 'application/json')], [json.dumps(result).encode('utf-8')]
+        
+        # Obtener materias disponibles y período actual
+        available_subjects, current_period = get_available_subjects_for_student(
+            db, int(student_id), int(program_id)
+        )
+        
+        result = {
+            'subjects': [{
+                'subject_id': s.subject_id,
+                'code': s.code,
+                'name': s.name,
+                'credits': s.credits
+            } for s in available_subjects],
+            'current_period': current_period
+        }
+        
+        return "200 OK", [('Content-type', 'application/json')], [json.dumps(result).encode('utf-8')]
+        
+    except Exception as e:
+        print(f"Error en API: {e}")
+        result = {'error': str(e), 'subjects': []}
+        return "500 Internal Server Error", [('Content-type', 'application/json')], [json.dumps(result).encode('utf-8')]
+        
+    finally:
+        db.close()
+
+
+
 
 
 @login_required
@@ -312,6 +361,33 @@ def enrollments_list(environ):
         db.close()
 
 
+def get_current_period_for_student(db, student_id, program_id):
+    """Calcula en qué período del plan va el estudiante"""
+    
+    # Obtener materias aprobadas
+    approved_count = db.query(StudentGrade).filter(
+        StudentGrade.student_user_id == student_id,
+        StudentGrade.status == 'Approved'
+    ).count()
+    
+    # Obtener total de materias por período (promedio)
+    subjects_per_period = db.query(
+        ProgramSubject.period_number, 
+        func.count(ProgramSubject.subject_id).label('count')
+    ).filter(
+        ProgramSubject.program_id == program_id
+    ).group_by(ProgramSubject.period_number).all()
+    
+    # Calcular período actual basado en materias aprobadas
+    cumulative = 0
+    for period_data in subjects_per_period:
+        cumulative += period_data.count
+        if approved_count < cumulative:
+            return period_data.period_number
+    
+    return 1
+
+
 
 # Configuración de carpetas
 UPLOAD_FOLDER = os.path.join('static', 'uploads', 'payments')
@@ -323,6 +399,73 @@ def parse_form_data_with_files(environ):
     # Werkzeug maneja el flujo de datos (stream) de forma segura
     stream, form, files = parse_form_data(environ)
     return form, files
+
+
+def get_available_subjects_for_student(db, student_id, program_id):
+    """Retorna las materias que el estudiante puede inscribir en su período actual"""
+    
+    # 1. Obtener el período actual del estudiante según materias aprobadas
+    current_period = get_current_period_for_student(db, student_id, program_id)
+    
+    # 2. Obtener materias del programa para este período
+    program_subjects = db.query(ProgramSubject).filter(
+        ProgramSubject.program_id == program_id,
+        ProgramSubject.period_number == current_period
+    ).all()
+    program_subject_ids = [ps.subject_id for ps in program_subjects]
+    
+    # 3. Obtener materias ya aprobadas
+    approved_subjects = db.query(StudentGrade.subject_id).filter(
+        StudentGrade.student_user_id == student_id,
+        StudentGrade.status == 'Approved'
+    ).all()
+    approved_ids = [s.subject_id for s in approved_subjects]
+    
+    # 4. Obtener materias actualmente inscritas
+    current_enrollments = db.query(Enrollment.subject_id).filter(
+        Enrollment.student_user_id == student_id,
+        Enrollment.status == 'Registered'
+    ).all()
+    enrolled_ids = [e.subject_id for e in current_enrollments]
+    
+    # 5. Filtrar materias disponibles
+    available = []
+    for ps in program_subjects:
+        if ps.subject_id not in approved_ids and ps.subject_id not in enrolled_ids:
+            available.append(ps.subject)
+    
+    return available, current_period
+
+def get_current_period_for_student(db, student_id, program_id):
+    """Calcula en qué período del plan va el estudiante según materias aprobadas"""
+    
+    # Obtener materias aprobadas
+    approved_count = db.query(StudentGrade).filter(
+        StudentGrade.student_user_id == student_id,
+        StudentGrade.status == 'Approved'
+    ).count()
+    
+    # Obtener total de materias por período
+    subjects_per_period = db.query(
+        ProgramSubject.period_number, 
+        func.count(ProgramSubject.subject_id).label('count')
+    ).filter(
+        ProgramSubject.program_id == program_id
+    ).group_by(ProgramSubject.period_number).all()
+    
+    # Si no hay materias configuradas, retornar período 1
+    if not subjects_per_period:
+        return 1
+    
+    # Calcular período actual basado en materias aprobadas
+    cumulative = 0
+    for period_data in subjects_per_period:
+        cumulative += period_data.count
+        if approved_count < cumulative:
+            return period_data.period_number
+    
+    # Si ya aprobó todas, retornar el último período
+    return subjects_per_period[-1].period_number
 
 
 @login_required
@@ -337,6 +480,7 @@ def enrollments_create(environ):
             target_student_id = request.form.get('student_id', type=int)
             program_id = request.form.get('program_id', type=int)
             term_id = request.form.get('term_id', type=int)
+            selected_subjects = request.form.getlist('subjects')
             bank_ref = request.form.get('bank_reference')
             file_item = request.files.get('voucher')
             
@@ -354,6 +498,19 @@ def enrollments_create(environ):
             if not term:
                 session['flash_message'] = "Error: Período académico no válido."
                 return redirect('/transactions/enrollments/create')
+            
+            if not selected_subjects:
+                session['flash_message'] = "Error: Debe seleccionar al menos una materia."
+                return redirect('/transactions/enrollments/create')
+            
+            # Obtener materias disponibles automáticamente
+            available_subjects, current_period = get_available_subjects_for_student(db, target_student_id, program_id)
+            available_ids = [s.subject_id for s in available_subjects]
+            
+            for subject_id in selected_subjects:
+                if int(subject_id) not in available_ids:
+                    session['flash_message'] = "Error: Una de las materias seleccionadas no está disponible."
+                    return redirect('/transactions/enrollments/create')
             
             fee = db.query(FeeSchedule).filter(FeeSchedule.program_id == program_id).first()
             if not fee:
@@ -389,13 +546,11 @@ def enrollments_create(environ):
                 )
                 db.add(new_payment)
                 
-                subjects = db.query(Subject).filter(Subject.program_id == program_id).all()
-                
-                for sub in subjects:
+                for subject_id in selected_subjects:
                     enrollment = Enrollment(
                         student_user_id=target_student_id,
                         section_id=section.section_id,
-                        subject_id=sub.subject_id,
+                        subject_id=int(subject_id),
                         term_id=term_id,
                         enrollment_date=datetime.now().date(),
                         status='Registered'
@@ -407,7 +562,8 @@ def enrollments_create(environ):
                 
                 db.commit()
                 
-                session['flash_message'] = f"¡Éxito! {student.name} {student.last_name} inscrito en {program.name} para {term.name}"
+                period_text = f"Período {current_period} del plan"
+                session['flash_message'] = f"¡Éxito! {student.name} {student.last_name} inscrito en {len(selected_subjects)} materias ({period_text}) para {term.name}"
                 
             except Exception as e:
                 db.rollback()
@@ -415,6 +571,7 @@ def enrollments_create(environ):
             
             return redirect('/transactions/enrollments/list')
         
+        # GET - Mostrar formulario
         available_students = db.query(User).filter(User.user_type_id == 4).all()
         programs = db.query(Program).all()
         terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
@@ -437,6 +594,125 @@ def enrollments_create(environ):
         return redirect('/transactions/enrollments/list')
     finally:
         db.close()
+
+
+@login_required
+def enrollments_edit(environ, enrollment_id):
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    
+    try:
+        # Buscar la inscripción con todas sus relaciones
+        enrollment = db.query(Enrollment).options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.subject).joinedload(Subject.program),
+            joinedload(Enrollment.term),
+            joinedload(Enrollment.section)
+        ).filter(Enrollment.enrollment_id == enrollment_id).first()
+        
+        if not enrollment:
+            session['flash_message'] = "Error: Inscripción no encontrada."
+            return redirect('/transactions/enrollments/list')
+        
+        # Buscar el pago asociado
+        payment = db.query(Payment).filter(
+            Payment.student_user_id == enrollment.student_user_id,
+            Payment.program_id == enrollment.subject.program_id
+        ).first()
+        
+        if environ['REQUEST_METHOD'] == 'POST':
+            request = Request(environ)
+            
+            program_id = request.form.get('program_id', type=int)
+            term_id = request.form.get('term_id', type=int)
+            bank_reference = request.form.get('bank_reference')
+            payment_status = request.form.get('payment_status')
+            
+            # Si cambió el programa
+            if program_id != enrollment.subject.program_id:
+                # Buscar nueva sección con cupo
+                new_section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
+                    .filter(Subject.program_id == program_id)\
+                    .filter(Section.capacity > 0)\
+                    .order_by(asc(Section.section_id)).with_for_update().first()
+                
+                if not new_section:
+                    session['flash_message'] = "No hay cupos disponibles para el nuevo programa."
+                    return redirect(f'/transactions/enrollments/{enrollment_id}/edit')
+                
+                # Actualizar todas las materias a la nueva sección
+                db.query(Enrollment).filter(
+                    Enrollment.student_user_id == enrollment.student_user_id,
+                    Enrollment.term_id == enrollment.term_id
+                ).update({'section_id': new_section.section_id})
+                
+                # Liberar cupo de la sección anterior
+                old_section = db.query(Section).filter(Section.section_id == enrollment.section_id).first()
+                if old_section:
+                    old_section.capacity += 1
+                
+                new_section.capacity -= 1
+                enrollment.student.program_id = program_id
+            
+            # Actualizar período
+            if term_id != enrollment.term_id:
+                db.query(Enrollment).filter(
+                    Enrollment.student_user_id == enrollment.student_user_id,
+                    Enrollment.term_id == enrollment.term_id
+                ).update({'term_id': term_id})
+            
+            # Actualizar pago
+            if payment:
+                payment.bank_reference = bank_reference
+                payment.status = payment_status
+            else:
+                # Crear nuevo pago si no existe
+                fee = db.query(FeeSchedule).filter(FeeSchedule.program_id == program_id).first()
+                if fee:
+                    new_payment = Payment(
+                        student_user_id=enrollment.student_user_id,
+                        program_id=program_id,
+                        concept_id=fee.concept_id,
+                        amount=fee.value_bs,
+                        bank_reference=bank_reference,
+                        payment_date=datetime.now(),
+                        status=payment_status
+                    )
+                    db.add(new_payment)
+            
+            db.commit()
+            session['flash_message'] = "Inscripción actualizada exitosamente."
+            return redirect('/transactions/enrollments/list')
+        
+        # GET - Mostrar formulario
+        programs = db.query(Program).all()
+        terms = db.query(AcademicTerm).order_by(AcademicTerm.start_date.desc()).all()
+        
+        context = {
+            'enrollment': enrollment,
+            'payment': payment,
+            'programs': programs,
+            'terms': terms,
+            'csrf_token': session['csrf_token'],
+            'flash_message': session.pop('flash_message', None),
+            'user_name': session.get('user_name')
+        }
+        
+        html = render_template('transactions/enrollments_edit.html', **context)
+        return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error en enrollments_edit: {e}")
+        session['flash_message'] = f"Error: {str(e)}"
+        return redirect('/transactions/enrollments/list')
+    finally:
+        db.close()
+
+
 
 @login_required
 def enrollments_delete(environ, enrollment_id):

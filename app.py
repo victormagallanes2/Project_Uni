@@ -6,11 +6,15 @@ from authentication.views import login, logout
 from users.views import users_list, users_create, users_edit, users_delete
 from web.views import web, student_enrollment_self, student_login, student_logout, student_register
 
+
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
     sections_list, sections_create, sections_edit, sections_delete,
     subjects_list, subjects_create, subjects_edit, subjects_delete,
-    programs_list, programs_create, programs_edit, programs_delete
+    programs_list, programs_create, programs_edit, programs_delete,
+    program_subjects_list, 
+    program_subjects_config,
+    program_subjects_clear
 )
 from fees.views import (
     fee_concepts_list, fee_concepts_create, fee_concepts_edit, fee_concepts_delete,
@@ -18,9 +22,9 @@ from fees.views import (
 )
 from transactions.views import (
     payments_register, payments_list_admin, payments_verify,
-    enrollment_choose_sections, enrollments_list, enrollments_create, enrollments_delete
+    enrollment_choose_sections, enrollments_list, enrollments_create, enrollments_edit, enrollments_delete, api_available_subjects
 )
-# ---------------------------
+
 
 from paste.urlparser import StaticURLParser
 from paste.urlmap import URLMap 
@@ -67,6 +71,10 @@ def app(environ, start_response):
 
     prog_edit_match = re.match(r'^/academic/programs/edit/(\d+)$', path)
     prog_delete_match = re.match(r'^/academic/programs/delete/(\d+)$', path)
+
+    prog_subject_config = re.match(r'^/academic/program-subjects/config/(\d+)$', path)
+    prog_subject_clear = re.match(r'^/academic/program-subjects/clear/(\d+)$', path)
+
 
     # =========================================================================
     # LÓGICA DE ENRUTAMIENTO (Routing)
@@ -183,6 +191,18 @@ def app(environ, start_response):
         status, headers, body_content = student_logout(environ)
     elif path == '/register':
         status, headers, body_content = student_register(environ)
+    
+    elif path == '/api/available-subjects':
+        status, headers, body_content = api_available_subjects(environ)
+
+    elif path == '/academic/program-subjects/list':
+        status, headers, body_content = program_subjects_list(environ)
+
+    elif prog_subject_config:
+        status, headers, body_content = program_subjects_config(environ, int(prog_subject_config.group(1)))
+
+    elif prog_subject_clear:
+        status, headers, body_content = program_subjects_clear(environ, int(prog_subject_clear.group(1)))
     
     # --- 404 NOT FOUND ---
     else:

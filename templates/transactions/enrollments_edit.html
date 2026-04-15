@@ -1,76 +1,122 @@
+<!-- templates/transactions/enrollments_edit.html -->
 {% extends "base.html" %}
 
-{% block title %}Modificar Inscripción | {{ enrollment.student.name }}{% endblock %}
-
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">Modificar Inscripción</h1>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card shadow-sm border-warning">
-            <div class="card-header bg-warning text-dark">
-                <i class="fas fa-exclamation-triangle me-2"></i> 
-                Editando registro de: <strong>{{ enrollment.student.last_name }}, {{ enrollment.student.name }}</strong>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="/enrollments/edit/{{ enrollment.id }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Estudiante</label>
-                            <input type="text" class="form-control" value="{{ enrollment.student.name }} {{ enrollment.student.last_name }}" disabled>
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <div class="d-flex align-items-center">
+                        <h6 class="mb-0">Editar Inscripción</h6>
+                    </div>
+                </div>
+                <div class="card-body px-4 pt-4 pb-4">
+                    {% if flash_message %}
+                    <div class="alert alert-info">{{ flash_message }}</div>
+                    {% endif %}
+                    
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-control-label">Estudiante</label>
+                                    <input class="form-control" type="text" value="{{ enrollment.student.name }} {{ enrollment.student.last_name }} - {{ enrollment.student.national_id }}" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-control-label">Sección actual</label>
+                                    <input class="form-control" type="text" value="{{ enrollment.section.section_code }}" readonly>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Fecha Original</label>
-                            <input type="text" class="form-control" value="{{ enrollment.enrollment_date.strftime('%d/%m/%Y') }}" disabled>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="program_id" class="form-control-label">Programa</label>
+                                    <select class="form-control" id="program_id" name="program_id" required>
+                                        {% for program in programs %}
+                                        <option value="{{ program.program_id }}" {% if program.program_id == enrollment.subject.program_id %}selected{% endif %}>
+                                            {{ program.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="term_id" class="form-control-label">Período Académico</label>
+                                    <select class="form-control" id="term_id" name="term_id" required>
+                                        {% for term in terms %}
+                                        <option value="{{ term.term_id }}" {% if term.term_id == enrollment.term_id %}selected{% endif %}>
+                                            {{ term.name }} ({{ term.start_date.strftime('%d/%m/%Y') }} - {{ term.end_date.strftime('%d/%m/%Y') }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label font-weight-bold">Cambiar a Sección / Materia</label>
-                        <select class="form-select" name="section_id" required>
-                            {% for section in sections %}
-                            <option value="{{ section.section_id }}" {% if enrollment.section_id == section.section_id %}selected{% endif %}>
-                                {{ section.section_code }} - {{ section.subject.name }} 
-                                (Cupos: {{ section.capacity }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Use esta opción solo si necesita reubicar al estudiante de sección.</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label font-weight-bold">Estado de la Inscripción</label>
-                        <select class="form-select" name="status" required>
-                            <option value="Activo" {% if enrollment.status == 'Activo' %}selected{% endif %}>Activo</option>
-                            <option value="Retirado" {% if enrollment.status == 'Retirado' %}selected{% endif %}>Retirado</option>
-                            <option value="En Espera" {% if enrollment.status == 'En Espera' %}selected{% endif %}>En Espera</option>
-                        </select>
-                    </div>
-
-                    <div class="d-flex justify-content-end mt-4">
-                        <a href="/enrollments/list" class="btn btn-secondary me-2">Regresar</a>
-                        <button type="submit" class="btn btn-warning text-dark">
-                            <i class="fas fa-sync-alt me-1"></i> Actualizar Registro
-                        </button>
-                    </div>
-                </form>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="bank_reference" class="form-control-label">Referencia Bancaria</label>
+                                    <input class="form-control" type="text" id="bank_reference" name="bank_reference" value="{{ payment.bank_reference if payment else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="payment_status" class="form-control-label">Estado del Pago</label>
+                                    <select class="form-control" id="payment_status" name="payment_status">
+                                    <option value="Pending Verification" {% if payment and payment.status == 'Pending Verification' %}selected{% endif %}>⏳ Pendiente por Aprobar</option>
+                                    <option value="Approved" {% if payment and payment.status == 'Approved' %}selected{% endif %}>✅ Aprobado</option>
+                                    <option value="Rejected" {% if payment and payment.status == 'Rejected' %}selected{% endif %}>❌ Rechazado</option>
+                                </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if payment and payment.proof_url %}
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label class="form-control-label">Comprobante de Pago</label>
+                                    <div class="mt-2">
+                                        {% if payment.proof_url.lower().endswith('.pdf') %}
+                                            <a href="/static/uploads/payments/{{ payment.proof_url }}" target="_blank" class="btn btn-info btn-sm">
+                                                <i class="fas fa-file-pdf"></i> Ver PDF
+                                            </a>
+                                        {% else %}
+                                            <img src="/static/uploads/payments/{{ payment.proof_url }}" class="img-fluid img-thumbnail" style="max-height: 200px; cursor: pointer;" onclick="window.open(this.src)">
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mt-4">
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                <a href="/transactions/enrollments/list" class="btn btn-secondary">Cancelar</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="col-lg-4">
-        <div class="alert alert-info border-info">
-            <h5><i class="fas fa-lightbulb me-2"></i>Nota Administrativa</h5>
-            <p class="small mb-0">
-                Si el estudiante se retira de la materia, el sistema mantendrá el registro histórico pero liberará el cupo en la sección correspondiente automáticamente.
-            </p>
-        </div>
-    </div>
 </div>
+
+<script>
+document.querySelectorAll('img').forEach(img => {
+    img.addEventListener('click', function() {
+        window.open(this.src);
+    });
+});
+</script>
 {% endblock %}

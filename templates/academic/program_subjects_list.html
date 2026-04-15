@@ -1,0 +1,82 @@
+<!-- templates/academic/program_subjects_list.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <div class="d-flex align-items-center">
+                        <h6 class="mb-0">Planes de Estudio</h6>
+                    </div>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    {% if flash_message %}
+                    <div class="alert alert-success mx-3">{{ flash_message }}</div>
+                    {% endif %}
+                    
+                    {% for data in programs_data %}
+                    <div class="card mx-3 mb-4">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">{{ data.program.name }}</h5>
+                                <div>
+                                    <a href="/academic/program-subjects/config/{{ data.program.program_id }}" 
+                                       class="btn btn-warning btn-sm">
+                                        <i class="fas fa-edit"></i> Configurar
+                                    </a>
+                                    <a href="/academic/program-subjects/clear/{{ data.program.program_id }}" 
+                                       class="btn btn-danger btn-sm"
+                                       onclick="return confirm('¿Eliminar toda la configuración de este programa?')">
+                                        <i class="fas fa-trash"></i> Limpiar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if data.subjects_by_period %}
+                                {% for period in range(1, data.max_period + 1) %}
+                                    {% if data.subjects_by_period.get(period) %}
+                                    <div class="mb-3">
+                                        <h6 class="text-primary">Período {{ period }} del Plan</h6>
+                                        <table class="table table-sm table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Código</th>
+                                                    <th>Materia</th>
+                                                    <th>UC</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for subject in data.subjects_by_period[period] %}
+                                                <tr>
+                                                    <td>{{ subject.code }}</td>
+                                                    <td>{{ subject.name }}</td>
+                                                    <td>{{ subject.credits }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No hay materias configuradas para este programa.</p>
+                                <a href="/academic/program-subjects/{{ data.program.program_id }}/config" 
+                                   class="btn btn-primary btn-sm">Configurar ahora</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mx-3">
+                        No hay programas registrados. 
+                        <a href="/academic/programs/create">Crear programa</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

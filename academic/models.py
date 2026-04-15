@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, DECIMAL, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, Date, DECIMAL, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -70,3 +70,35 @@ class Prerequisite(Base):
     
     main_subject = relationship("Subject", foreign_keys=[main_subject_id])
     required_subject = relationship("Subject", foreign_keys=[required_subject_id])
+
+
+
+class StudentGrade(Base):
+    __tablename__ = 'student_grades'
+    
+    grade_id = Column(Integer, primary_key=True)
+    student_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    subject_id = Column(Integer, ForeignKey('subjects.subject_id'), nullable=False)
+    term_id = Column(Integer, ForeignKey('academic_terms.term_id'), nullable=False)
+    
+    grade = Column(String(5))  # 'A', 'B', 'C', 'D', 'F'
+    numeric_grade = Column(DECIMAL(5,2))  # 0-20
+    status = Column(String(20), default='In Progress')  # 'In Progress', 'Approved', 'Failed', 'Withdrawn'
+    approval_date = Column(Date)
+    
+    student = relationship("User")
+    subject = relationship("Subject")
+    term = relationship("AcademicTerm")
+
+class ProgramSubject(Base):
+    __tablename__ = 'program_subjects'
+    
+    id = Column(Integer, primary_key=True)
+    program_id = Column(Integer, ForeignKey('programs.program_id'), nullable=False)
+    subject_id = Column(Integer, ForeignKey('subjects.subject_id'), nullable=False)
+    period_number = Column(Integer, nullable=False)  # 1, 2, 3, 4... (orden en el plan)
+    is_elective = Column(Boolean, default=False)
+    is_mandatory = Column(Boolean, default=True)
+    
+    program = relationship("Program")
+    subject = relationship("Subject")

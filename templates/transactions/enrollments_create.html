@@ -1,3 +1,4 @@
+<!-- templates/transactions/enrollments_create.html -->
 {% extends "base.html" %}
 
 {% block content %}
@@ -13,8 +14,8 @@
         
         <div class="form-group mb-3">
             <label for="student_id">Estudiante:</label>
-            <select name="student_id" id="student_id" class="form-control" style="width: 100%;" required>
-                <option value="">Seleccione un estudiante...</option>
+            <select name="student_id" id="student_id" class="form-control select2" style="width: 100%;" required>
+                <option value="">Buscar estudiante por nombre o cédula...</option>
                 {% for student in students %}
                 <option value="{{ student.id }}">
                     {{ student.national_id }} - {{ student.name }} {{ student.last_name }}
@@ -25,7 +26,7 @@
         
         <div class="form-group mb-3">
             <label for="program_id">Programa:</label>
-            <select name="program_id" id="program_id" class="form-control" required>
+            <select name="program_id" id="program_id" class="form-control select2" style="width: 100%;" required>
                 <option value="">Seleccione programa...</option>
                 {% for program in programs %}
                 <option value="{{ program.program_id }}">{{ program.name }}</option>
@@ -41,6 +42,14 @@
                 <option value="{{ term.term_id }}">{{ term.name }} ({{ term.start_date.strftime('%d/%m/%Y') }} - {{ term.end_date.strftime('%d/%m/%Y') }})</option>
                 {% endfor %}
             </select>
+        </div>
+        
+        <div class="form-group mb-3" id="subjects-container" style="display: none;">
+            <label>Materias a inscribir:</label>
+            <div id="subjects-list" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                <p class="text-muted">Seleccione un estudiante y programa para ver las materias disponibles</p>
+            </div>
+            <small class="form-text text-muted">Solo se muestran materias que el estudiante puede cursar según su avance académico</small>
         </div>
         
         <div class="form-group mb-3">
@@ -66,45 +75,79 @@
     </form>
 </div>
 
-<!-- PRIMERO: Cargar jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- SEGUNDO: Cargar Select2 CSS y JS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<!-- TERCERO: Font Awesome para iconos -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
-<!-- CUARTO: Nuestro script -->
 <script>
-// Esperar a que el DOM esté listo
 $(document).ready(function() {
-    console.log("✅ jQuery está funcionando");
-    console.log("✅ Select2 disponible:", typeof $.fn.select2 !== 'undefined');
-    
-    try {
-        // Inicializar Select2 en el select de estudiantes
-        $('#student_id').select2({
-            placeholder: "Buscar estudiante por nombre o cédula...",
-            allowClear: true,
-            width: '100%',
-            language: {
-                noResults: function() {
-                    return "No se encontraron estudiantes";
-                },
-                searching: function() {
-                    return "Buscando...";
-                }
+    $('.select2').select2({
+        placeholder: "Buscar...",
+        allowClear: true,
+        width: '100%',
+        language: {
+            noResults: function() {
+                return "No se encontraron resultados";
+            },
+            searching: function() {
+                return "Buscando...";
             }
-        });
-        console.log("✅ Select2 inicializado correctamente");
-    } catch (error) {
-        console.error("❌ Error al inicializar Select2:", error);
-    }
+        }
+    });
+    
+    // Cargar materias cuando cambia estudiante o programa
+    $('#student_id, #program_id').change(function() {
+        var studentId = $('#student_id').val();
+        var programId = $('#program_id').val();
+        
+        if (studentId && programId) {
+            $.ajax({
+                url: '/api/available-subjects',
+                data: {
+                    student_id: studentId,
+                    program_id: programId
+                },
+                dataType: 'json',
+                success: function(data) {
+                    var container = $('#subjects-container');
+                    var list = $('#subjects-list');
+                    
+                    if (data.subjects && data.subjects.length > 0) {
+                        container.show();
+                        list.html('');
+                        data.subjects.forEach(function(subject) {
+                            list.append(`
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="subjects" value="${subject.subject_id}" 
+                                           id="subj_${subject.subject_id}">
+                                    <label class="form-check-label" for="subj_${subject.subject_id}">
+                                        <strong>${subject.code}</strong> - ${subject.name} (${subject.credits} UC)
+                                    </label>
+                                </div>
+                            `);
+                        });
+                        if (data.current_period) {
+                            list.prepend(`<div class="alert alert-info mb-2">Período del plan: ${data.current_period}</div>`);
+                        }
+                    } else {
+                        container.show();
+                        list.html('<p class="text-warning">No hay materias disponibles para inscripción. El estudiante puede haber completado todas las materias de su plan.</p>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error:", error);
+                    $('#subjects-container').show();
+                    $('#subjects-list').html('<p class="text-danger">Error al cargar las materias. Verifique que el programa tenga materias configuradas.</p>');
+                }
+            });
+        } else {
+            $('#subjects-container').hide();
+        }
+    });
 });
 
-// Función para vista previa de imagen
 function previewFile(input) {
     var previewContainer = document.getElementById('preview-container');
     var imagePreview = document.getElementById('image-preview');
