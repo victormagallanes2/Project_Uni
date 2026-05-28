@@ -7,7 +7,7 @@ from urllib.parse import parse_qs
 from db import SessionLocal
 from users.models import User # Para obtener la lista de profesores
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, parse_form_data, redirect
-from academic.models import Section, Subject, AcademicTerm, SectionSubject, Program, ProgramSubject
+from academic.models import Cohort, Subject, AcademicTerm, Program, ProgramSubject
 from sqlalchemy.orm import joinedload
 from werkzeug.wrappers import Request
 
@@ -191,171 +191,155 @@ def academic_terms_delete(environ, term_id):
         db.close()
 
 
+# academic/views.py - Funciones CRUD para Cohort
+
+from sqlalchemy.orm import joinedload
+from academic.models import Cohort, Subject, AcademicTerm, Program
+from core.views import render_template, login_required, generate_csrf_token, redirect, parse_form_data
+from db import SessionLocal
+from urllib.parse import parse_qs
+from werkzeug.wrappers import Request
+
+
 # =========================================================================
-# CRUD de Oferta de Secciones (Section)
+# CRUD de Cohortes (reemplaza Section)
 # =========================================================================
 
-# C: Create (Crear)
 @login_required
-def sections_create(environ):
-    db = SessionLocal()
-    session = environ['beaker.session']
-    
-    if environ['REQUEST_METHOD'] == 'POST':
-        form_data = parse_form_data(environ) # Tu función para leer el POST
-        
-        try:
-            # 1. Crear la Sección (El Cohorte)
-            new_section = Section(
-                section_code=form_data.get('section_code'),
-                term_id=form_data.get('term_id'),
-                capacity=form_data.get('capacity', 30)
-            )
-            db.add(new_section)
-            db.flush() # Para obtener el ID de la sección antes del commit final
-
-            # 2. Asignar las materias seleccionadas
-            subject_ids = form_data.getall('subject_ids') # Obtiene lista de checkboxes
-            for s_id in subject_ids:
-                mapping = SectionSubject(
-                    section_id=new_section.section_id,
-                    subject_id=s_id
-                )
-                db.add(mapping)
-            
-            db.commit()
-            session['flash_message'] = "Sección y materias creadas exitosamente"
-            return redirect('/academic/sections/list')
-        except Exception as e:
-            db.rollback()
-            # Manejar error...
-    
-    # Datos para los Selects del formulario
-    terms = db.query(AcademicTerm).all()
-    subjects = db.query(Subject).all()
-    
-    context = {
-        'terms': terms,
-        'subjects': subjects,
-        'user_name': session.get('user_name')
-    }
-    
-    return "200 OK", [('Content-type', 'text/html')], [render_template('academic/sections_create.html', **context).encode('utf-8')]
-
-# R: Read (Listar)
-@login_required
-def sections_list(environ):
+def cohorts_list(environ):
+    """Lista todas las cohortes"""
     db = SessionLocal()
     session = environ['beaker.session']
     flash_message = session.pop('flash_message', None)
     
     try:
-        # Cargamos las secciones y sus relaciones
-        # Traemos el Periodo (term) y la lista de materias (subjects) con sus detalles
-        sections = db.query(Section).options(
-            joinedload(Section.term),
-            joinedload(Section.subjects).joinedload(SectionSubject.subject)
+        cohorts = db.query(Cohort).options(
+            joinedload(Cohort.term),
+            joinedload(Cohort.program)
         ).all()
         
         context = {
-            'sections': sections,
+            'cohorts': cohorts,
             'flash_message': flash_message,
-            'user_name': session.get('user_name', 'Usuario')
+            'user_name': session.get('user_name')
         }
         
-        html = render_template('academic/sections_list.html', **context)
+        html = render_template('academic/cohorts_list.html', **context)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
     finally:
         db.close()
 
-# U: Update (Actualizar)
+
 @login_required
-def sections_edit(environ, section_id):
+def cohorts_create(environ):
+    """Crea una nueva cohorte"""
     db = SessionLocal()
     session = environ['beaker.session']
     
-    # 1. Obtener la sección con sus materias actuales
-    section = db.query(Section).filter(Section.section_id == section_id).first()
-    if not section:
-        session['flash_message'] = "Sección no encontrada."
-        return redirect('/academic/sections/list')
-
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    
     if environ['REQUEST_METHOD'] == 'POST':
         form_data = parse_form_data(environ)
         
         try:
-            # Actualizar datos básicos
-            section.section_code = form_data.get('section_code')
-            section.term_id = form_data.get('term_id')
-            section.capacity = form_data.get('capacity')
-
-            # Sincronizar Materias (Muchos a Muchos)
-            # Borramos las asociaciones actuales para insertar las nuevas
-            db.query(SectionSubject).filter(SectionSubject.section_id == section_id).delete()
-            
-            subject_ids = form_data.getall('subject_ids')
-            for s_id in subject_ids:
-                new_mapping = SectionSubject(section_id=section_id, subject_id=s_id)
-                db.add(new_mapping)
-
+            new_cohort = Cohort(
+                cohort_code=form_data.get('cohort_code'),
+                program_id=form_data.get('program_id'),
+                term_id=form_data.get('term_id'),
+                capacity=form_data.get('capacity', 30)
+            )
+            db.add(new_cohort)
             db.commit()
-            session['flash_message'] = "Sección actualizada con éxito."
-            return redirect('/academic/sections/list')
+            session['flash_message'] = "Cohorte creada exitosamente"
+            return redirect('/academic/cohorts/list')
         except Exception as e:
             db.rollback()
-            session['flash_message'] = f"Error al actualizar: {str(e)}"
-
-    # Datos para el formulario
-    terms = db.query(AcademicTerm).all()
-    subjects = db.query(Subject).all()
+            session['flash_message'] = f"Error al crear: {str(e)}"
     
-    # Creamos una lista de IDs de materias que ya tiene la sección para marcarlas en el HTML
-    current_subject_ids = [s.subject_id for s in section.subjects]
+    terms = db.query(AcademicTerm).all()
+    programs = db.query(Program).all()
     
     context = {
-        'section': section,
         'terms': terms,
-        'subjects': subjects,
-        'current_subject_ids': current_subject_ids,
+        'programs': programs,
+        'csrf_token': session['csrf_token'],
         'user_name': session.get('user_name')
     }
     
-    html = render_template('academic/sections_edit.html', **context)
+    html = render_template('academic/cohorts_create.html', **context)
     return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
 
-# D: Delete (Eliminar)
+
 @login_required
-def sections_delete(environ, section_id):
+def cohorts_edit(environ, cohort_id):
+    """Edita una cohorte existente"""
+    db = SessionLocal()
+    session = environ['beaker.session']
+    
+    if 'csrf_token' not in session:
+        session['csrf_token'] = generate_csrf_token()
+    
+    cohort = db.query(Cohort).filter(Cohort.cohort_id == cohort_id).first()
+    if not cohort:
+        session['flash_message'] = "Cohorte no encontrada"
+        return redirect('/academic/cohorts/list')
+    
+    if environ['REQUEST_METHOD'] == 'POST':
+        form_data = parse_form_data(environ)
+        
+        try:
+            cohort.cohort_code = form_data.get('cohort_code')
+            cohort.program_id = form_data.get('program_id')
+            cohort.term_id = form_data.get('term_id')
+            cohort.capacity = form_data.get('capacity')
+            
+            db.commit()
+            session['flash_message'] = "Cohorte actualizada exitosamente"
+            return redirect('/academic/cohorts/list')
+        except Exception as e:
+            db.rollback()
+            session['flash_message'] = f"Error al actualizar: {str(e)}"
+    
+    terms = db.query(AcademicTerm).all()
+    programs = db.query(Program).all()
+    
+    context = {
+        'cohort': cohort,
+        'terms': terms,
+        'programs': programs,
+        'csrf_token': session['csrf_token'],
+        'user_name': session.get('user_name')
+    }
+    
+    html = render_template('academic/cohorts_edit.html', **context)
+    return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+
+
+@login_required
+def cohorts_delete(environ, cohort_id):
+    """Elimina una cohorte"""
     db = SessionLocal()
     session = environ['beaker.session']
     
     try:
-        # 1. Buscar la sección
-        section = db.query(Section).filter(Section.section_id == section_id).first()
+        cohort = db.query(Cohort).filter(Cohort.cohort_id == cohort_id).first()
         
-        if not section:
-            session['flash_message'] = "Error: La sección no existe."
-            return redirect('/academic/sections/list')
-
-        # 2. Borrar las relaciones en la tabla intermedia (SectionSubject)
-        # Esto es necesario para evitar errores de integridad
-        db.query(SectionSubject).filter(SectionSubject.section_id == section_id).delete()
+        if not cohort:
+            session['flash_message'] = "Error: La cohorte no existe"
+            return redirect('/academic/cohorts/list')
         
-        # 3. Borrar la sección
-        db.delete(section)
-        
+        db.delete(cohort)
         db.commit()
-        session['flash_message'] = f"Sección {section.section_code} eliminada exitosamente."
         
+        session['flash_message'] = f"Cohorte {cohort.cohort_code} eliminada exitosamente"
     except Exception as e:
         db.rollback()
-        session['flash_message'] = f"No se pudo eliminar: La sección tiene alumnos inscritos."
-        print(f"Error al eliminar: {e}")
-        
+        session['flash_message'] = f"No se pudo eliminar: {str(e)}"
     finally:
         db.close()
-        
-    return redirect('/academic/sections/list')
+    
+    return redirect('/academic/cohorts/list')
 
 
 @login_required

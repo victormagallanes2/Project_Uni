@@ -1,0 +1,175 @@
+{
+  "programa": "MAESTRÍA EN CIENCIAS DE LA EDUCACIÓN",
+  "total_creditos": 41,
+  "periodos": [
+    {
+      "periodo": 1,
+      "nombre": "2024-II",
+      "materias": [
+        {
+          "codigo": "MCEM01",
+          "nombre": "Comprensión de la Realidad Nacional Latinoamericana y Mundial",
+          "horas_teoricas": 32,
+          "horas_practicas": 0,
+          "total_horas": 32,
+          "unidades_credito": 2
+        },
+        {
+          "codigo": "MCEM02",
+          "nombre": "Ética de la profesión",
+          "horas_teoricas": 48,
+          "horas_practicas": 0,
+          "total_horas": 48,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM03",
+          "nombre": "Metodología de la Investigación",
+          "horas_teoricas": 32,
+          "horas_practicas": 32,
+          "total_horas": 64,
+          "unidades_credito": 3
+        }
+      ]
+    },
+    {
+      "periodo": 2,
+      "nombre": "2025-I",
+      "materias": [
+        {
+          "codigo": "MCEM04",
+          "nombre": "Teoría y Práctica de la Enseñanza",
+          "horas_teoricas": 32,
+          "horas_practicas": 16,
+          "total_horas": 48,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM05",
+          "nombre": "Procesos Socio afectivos",
+          "horas_teoricas": 32,
+          "horas_practicas": 16,
+          "total_horas": 48,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM17",
+          "nombre": "Seminario de Investigación I",
+          "horas_teoricas": 32,
+          "horas_practicas": 32,
+          "total_horas": 64,
+          "unidades_credito": 3
+        }
+      ]
+    },
+    {
+      "periodo": 3,
+      "nombre": "2025-II",
+      "materias": [
+        {
+          "codigo": "MCEM06",
+          "nombre": "Teoría y Modelos de Aprendizaje",
+          "horas_teoricas": 32,
+          "horas_practicas": 16,
+          "total_horas": 48,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM08",
+          "nombre": "Electiva I: Investigación Cualitativa",
+          "horas_teoricas": 16,
+          "horas_practicas": 32,
+          "total_horas": 48,
+          "unidades_credito": 2,
+          "electiva": true
+        },
+        {
+          "codigo": "MCEM18",
+          "nombre": "Seminario de Investigación II",
+          "horas_teoricas": 32,
+          "horas_practicas": 32,
+          "total_horas": 64,
+          "unidades_credito": 3
+        }
+      ]
+    },
+    {
+      "periodo": 4,
+      "nombre": "2026-I",
+      "materias": [
+        {
+          "codigo": "MCEM07",
+          "nombre": "Teorías Curriculares",
+          "horas_teoricas": 32,
+          "horas_practicas": 16,
+          "total_horas": 48,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM14",
+          "nombre": "Electiva II: Investigación Acción participativa (IAP)",
+          "horas_teoricas": 16,
+          "horas_practicas": 32,
+          "total_horas": 48,
+          "unidades_credito": 2,
+          "electiva": true
+        },
+        {
+          "codigo": "MCEM19",
+          "nombre": "Seminario de Trabajo de Grado",
+          "horas_teoricas": 32,
+          "horas_practicas": 32,
+          "total_horas": 64,
+          "unidades_credito": 3
+        },
+        {
+          "codigo": "MCEM20",
+          "nombre": "Asesoría Académica I",
+          "horas_teoricas": 0,
+          "horas_practicas": 0,
+          "total_horas": 0,
+          "unidades_credito": 0,
+          "nota": "Sin créditos"
+        }
+      ]
+    },
+    {
+      "periodo": 5,
+      "nombre": "2026-II",
+      "materias": [
+        {
+          "codigo": "MCEM12",
+          "nombre": "Electiva III: Intervención Comunitaria",
+          "horas_teoricas": 16,
+          "horas_practicas": 32,
+          "total_horas": 48,
+          "unidades_credito": 2,
+          "electiva": true
+        },
+        {
+          "codigo": "MCEM21",
+          "nombre": "Asesoría Académica II",
+          "horas_teoricas": 0,
+          "horas_practicas": 0,
+          "total_horas": 0,
+          "unidades_credito": 0,
+          "nota": "Sin créditos"
+        }
+      ]
+    },
+    {
+      "periodo": 6,
+      "nombre": "2027-I",
+      "materias": [
+        {
+          "codigo": "MCEM22",
+          "nombre": "Trabajo de Grado",
+          "horas_teoricas": 0,
+          "horas_practicas": 0,
+          "total_horas": 0,
+          "unidades_credito": 6
+        }
+      ]
+    }
+  ]
+}

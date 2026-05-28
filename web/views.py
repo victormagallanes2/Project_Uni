@@ -10,7 +10,7 @@ from db import SessionLocal
 from users.models import User
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, redirect, parse_form_data
 from transactions.models import Enrollment
-from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program
+from academic.models import AcademicTerm, Cohort, Subject, Program
 from urllib.parse import parse_qs
 import bcrypt
 from fees.models import FeeSchedule, Payment, FeeConcept

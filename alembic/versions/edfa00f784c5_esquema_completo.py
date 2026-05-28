@@ -1,8 +1,8 @@
-"""Esquema Inicial
+"""Esquema completo
 
-Revision ID: bbd98bee658b
+Revision ID: edfa00f784c5
 Revises: 
-Create Date: 2026-03-07 11:08:56.131100
+Create Date: 2026-05-19 09:47:04.705886
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'bbd98bee658b'
+revision: str = 'edfa00f784c5'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -33,8 +33,13 @@ def upgrade() -> None:
     )
     op.create_table('fee_concepts',
     sa.Column('concept_id', sa.Integer(), nullable=False),
+    sa.Column('code', sa.String(length=20), nullable=True),
     sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('amount_usd', sa.DECIMAL(precision=10, scale=2), nullable=False),
+    sa.Column('category', sa.String(length=50), nullable=True),
+    sa.Column('requires_verification', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('concept_id'),
+    sa.UniqueConstraint('code'),
     sa.UniqueConstraint('name')
     )
     op.create_table('programs',
@@ -54,25 +59,28 @@ def upgrade() -> None:
     with op.batch_alter_table('user_types', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_user_types_id'), ['id'], unique=False)
 
+    op.create_table('cohorts',
+    sa.Column('cohort_id', sa.Integer(), nullable=False),
+    sa.Column('program_id', sa.Integer(), nullable=False),
+    sa.Column('term_id', sa.Integer(), nullable=False),
+    sa.Column('cohort_code', sa.String(length=20), nullable=False),
+    sa.Column('capacity', sa.Integer(), nullable=False),
+    sa.Column('current_enrollment', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['program_id'], ['programs.program_id'], ),
+    sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
+    sa.PrimaryKeyConstraint('cohort_id'),
+    sa.UniqueConstraint('cohort_code')
+    )
     op.create_table('fee_schedules',
     sa.Column('schedule_id', sa.Integer(), nullable=False),
     sa.Column('concept_id', sa.Integer(), nullable=False),
     sa.Column('program_id', sa.Integer(), nullable=False),
     sa.Column('term_id', sa.Integer(), nullable=True),
-    sa.Column('value_bs', sa.DECIMAL(precision=12, scale=2), nullable=False),
+    sa.Column('amount_usd', sa.DECIMAL(precision=10, scale=2), nullable=False),
     sa.ForeignKeyConstraint(['concept_id'], ['fee_concepts.concept_id'], ),
     sa.ForeignKeyConstraint(['program_id'], ['programs.program_id'], ),
     sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
     sa.PrimaryKeyConstraint('schedule_id')
-    )
-    op.create_table('sections',
-    sa.Column('section_id', sa.Integer(), nullable=False),
-    sa.Column('term_id', sa.Integer(), nullable=False),
-    sa.Column('section_code', sa.String(length=20), nullable=False),
-    sa.Column('capacity', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
-    sa.PrimaryKeyConstraint('section_id'),
-    sa.UniqueConstraint('section_code')
     )
     op.create_table('subjects',
     sa.Column('subject_id', sa.Integer(), nullable=False),
@@ -105,24 +113,26 @@ def upgrade() -> None:
     op.create_table('enrollments',
     sa.Column('enrollment_id', sa.Integer(), nullable=False),
     sa.Column('student_user_id', sa.Integer(), nullable=False),
-    sa.Column('section_id', sa.Integer(), nullable=False),
+    sa.Column('cohort_id', sa.Integer(), nullable=False),
     sa.Column('subject_id', sa.Integer(), nullable=False),
     sa.Column('term_id', sa.Integer(), nullable=False),
     sa.Column('enrollment_date', sa.Date(), nullable=False),
     sa.Column('status', sa.String(length=50), nullable=True),
-    sa.ForeignKeyConstraint(['section_id'], ['sections.section_id'], ),
+    sa.ForeignKeyConstraint(['cohort_id'], ['cohorts.cohort_id'], ),
     sa.ForeignKeyConstraint(['student_user_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['subject_id'], ['subjects.subject_id'], ),
     sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
     sa.PrimaryKeyConstraint('enrollment_id'),
-    sa.UniqueConstraint('student_user_id', 'section_id', 'subject_id', 'term_id', name='uq_student_section_subject_term')
+    sa.UniqueConstraint('student_user_id', 'cohort_id', 'subject_id', 'term_id', name='uq_student_cohort_subject_term')
     )
     op.create_table('payments',
     sa.Column('payment_id', sa.Integer(), nullable=False),
     sa.Column('student_user_id', sa.Integer(), nullable=False),
     sa.Column('program_id', sa.Integer(), nullable=True),
     sa.Column('concept_id', sa.Integer(), nullable=False),
-    sa.Column('amount', sa.DECIMAL(precision=12, scale=2), nullable=False),
+    sa.Column('amount_usd', sa.DECIMAL(precision=10, scale=2), nullable=False),
+    sa.Column('amount_bs', sa.DECIMAL(precision=12, scale=2), nullable=True),
+    sa.Column('exchange_rate', sa.DECIMAL(precision=10, scale=2), nullable=True),
     sa.Column('payment_date', sa.DateTime(), nullable=False),
     sa.Column('proof_url', sa.String(length=255), nullable=True),
     sa.Column('bank_reference', sa.String(length=50), nullable=True),
@@ -141,15 +151,30 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['required_subject_id'], ['subjects.subject_id'], ),
     sa.PrimaryKeyConstraint('main_subject_id', 'required_subject_id')
     )
-    op.create_table('section_subjects',
+    op.create_table('program_subjects',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('section_id', sa.Integer(), nullable=False),
+    sa.Column('program_id', sa.Integer(), nullable=False),
     sa.Column('subject_id', sa.Integer(), nullable=False),
-    sa.Column('professor_user_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['professor_user_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['section_id'], ['sections.section_id'], ),
+    sa.Column('period_number', sa.Integer(), nullable=False),
+    sa.Column('is_elective', sa.Boolean(), nullable=True),
+    sa.Column('is_mandatory', sa.Boolean(), nullable=True),
+    sa.ForeignKeyConstraint(['program_id'], ['programs.program_id'], ),
     sa.ForeignKeyConstraint(['subject_id'], ['subjects.subject_id'], ),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('student_grades',
+    sa.Column('grade_id', sa.Integer(), nullable=False),
+    sa.Column('student_user_id', sa.Integer(), nullable=False),
+    sa.Column('subject_id', sa.Integer(), nullable=False),
+    sa.Column('term_id', sa.Integer(), nullable=False),
+    sa.Column('grade', sa.String(length=5), nullable=True),
+    sa.Column('numeric_grade', sa.DECIMAL(precision=5, scale=2), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=True),
+    sa.Column('approval_date', sa.Date(), nullable=True),
+    sa.ForeignKeyConstraint(['student_user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['subject_id'], ['subjects.subject_id'], ),
+    sa.ForeignKeyConstraint(['term_id'], ['academic_terms.term_id'], ),
+    sa.PrimaryKeyConstraint('grade_id')
     )
     # ### end Alembic commands ###
 
@@ -157,7 +182,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('section_subjects')
+    op.drop_table('student_grades')
+    op.drop_table('program_subjects')
     op.drop_table('prerequisites')
     op.drop_table('payments')
     op.drop_table('enrollments')
@@ -168,8 +194,8 @@ def downgrade() -> None:
 
     op.drop_table('users')
     op.drop_table('subjects')
-    op.drop_table('sections')
     op.drop_table('fee_schedules')
+    op.drop_table('cohorts')
     with op.batch_alter_table('user_types', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_user_types_id'))
 

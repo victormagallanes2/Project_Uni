@@ -1,0 +1,73 @@
+<!-- templates/academic/cohorts_create.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Crear Nueva Cohorte</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="cohort_code">Código de la Cohorte:</label>
+                                    <input type="text" name="cohort_code" id="cohort_code" class="form-control" required>
+                                    <small class="text-muted">Ej: DCA-2025-I, MGTH-2024-II</small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="program_id">Programa:</label>
+                                    <select name="program_id" id="program_id" class="form-control" required>
+                                        <option value="">Seleccione programa...</option>
+                                        {% for program in programs %}
+                                        <option value="{{ program.program_id }}">{{ program.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="term_id">Período Académico:</label>
+                                    <select name="term_id" id="term_id" class="form-control" required>
+                                        <option value="">Seleccione período...</option>
+                                        {% for term in terms %}
+                                        <option value="{{ term.term_id }}">{{ term.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="capacity">Capacidad:</label>
+                                    <input type="number" name="capacity" id="capacity" class="form-control" value="30" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <strong>Nota:</strong> Las materias de esta cohorte se definen automáticamente según el plan de estudio del programa.
+                        </div>
+                        
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-primary">Crear Cohorte</button>
+                            <a href="/academic/cohorts/list" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

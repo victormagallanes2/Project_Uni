@@ -1,4 +1,4 @@
-<!-- templates/fees/fee_schedules_list.html -->
+<!-- templates/academic/cohorts_list.html -->
 {% extends "base.html" %}
 
 {% block content %}
@@ -8,7 +8,10 @@
             <div class="card mb-4">
                 <div class="card-header pb-0">
                     <div class="d-flex align-items-center">
-                        <h6 class="mb-0">Tarifas por Programa</h6>
+                        <h6 class="mb-0">Listado de Cohortes</h6>
+                        <a href="/academic/cohorts/create" class="btn btn-primary btn-sm ms-auto">
+                            + Nueva Cohorte
+                        </a>
                     </div>
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
@@ -16,36 +19,34 @@
                     <div class="alert alert-success mx-3">{{ flash_message }}</div>
                     {% endif %}
                     
-                    {% if error %}
-                    <div class="alert alert-danger mx-3">{{ error }}</div>
-                    {% endif %}
-                    
                     <div class="table-responsive p-0">
                         <table class="table align-items-center mb-0">
                             <thead>
                                 <tr>
+                                    <th>Código</th>
                                     <th>Programa</th>
-                                    <th>Concepto</th>
-                                    <th>Monto (USD)</th>
                                     <th>Período</th>
+                                    <th>Capacidad</th>
+                                    <th>Materias</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for schedule in schedules %}
+                                {% for cohort in cohorts %}
                                 <tr>
-                                    <td>{{ schedule.program.name if schedule.program else 'N/A' }}</td>
-                                    <td>{{ schedule.concept.name if schedule.concept else 'N/A' }}</td>
-                                    <td>${{ "%.2f"|format(schedule.amount_usd) }}</td>  <!-- CAMBIADO: amount_usd -->
-                                    <td>{{ schedule.term.name if schedule.term else 'General' }}</td>
+                                    <td>{{ cohort.cohort_code }}</td>
+                                    <td>{{ cohort.program.name if cohort.program else 'N/A' }}</td>
+                                    <td>{{ cohort.term.name if cohort.term else 'N/A' }}</td>
+                                    <td>{{ cohort.capacity }}</td>
+                                    <td>{{ cohort.cohort_subjects|length }}</td>
                                     <td>
-                                        <a href="/fees/schedules/{{ schedule.schedule_id }}/edit" class="btn btn-warning btn-sm">Editar</a>
-                                        <a href="/fees/schedules/{{ schedule.schedule_id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar esta tarifa?')">Eliminar</a>
+                                        <a href="/academic/cohorts/{{ cohort.cohort_id }}/edit" class="btn btn-warning btn-sm">Editar</a>
+                                        <a href="/academic/cohorts/{{ cohort.cohort_id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar esta cohorte?')">Eliminar</a>
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center">No hay tarifas configuradas</td>
+                                    <td colspan="6" class="text-center">No hay cohortes registradas</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

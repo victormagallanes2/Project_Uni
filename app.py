@@ -9,7 +9,10 @@ from web.views import web, student_enrollment_self, student_login, student_logou
 
 from academic.views import (
     academic_terms_list, academic_terms_create, academic_terms_edit, academic_terms_delete,
-    sections_list, sections_create, sections_edit, sections_delete,
+    cohorts_list, 
+    cohorts_create, 
+    cohorts_edit, 
+    cohorts_delete,
     subjects_list, subjects_create, subjects_edit, subjects_delete,
     programs_list, programs_create, programs_edit, programs_delete,
     program_subjects_list, 
@@ -48,10 +51,7 @@ def app(environ, start_response):
     #materias
     subj_edit_match = re.match(r'^/academic/subjects/edit/(\d+)$', path)
     subj_delete_match = re.match(r'^/academic/subjects/delete/(\d+)$', path)
-    
-    # Sections
-    sec_edit_match = re.match(r'^/academic/sections/edit/(\d+)$', path)
-    sec_delete_match = re.match(r'^/academic/sections/delete/(\d+)$', path)
+
     
     # Fee Concepts
     concept_edit_match = re.match(r'^/fees/concepts/edit/(\d+)$', path)
@@ -100,15 +100,14 @@ def app(environ, start_response):
     elif term_delete_match:
         status, headers, body_content = academic_terms_delete(environ, int(term_delete_match.group(1)))
 
-    # --- RUTAS SECTIONS ---
-    elif path == '/academic/sections/list':
-        status, headers, body_content = sections_list(environ)
-    elif path == '/academic/sections/create':
-        status, headers, body_content = sections_create(environ)
-    elif sec_edit_match:
-        status, headers, body_content = sections_edit(environ, int(sec_edit_match.group(1)))
-    elif sec_delete_match:
-        status, headers, body_content = sections_delete(environ, int(sec_delete_match.group(1)))
+    elif path == '/academic/cohorts/list':
+        status, headers, body_content = cohorts_list(environ)
+    elif path == '/academic/cohorts/create':
+        status, headers, body_content = cohorts_create(environ)
+    elif path == '/academic/cohorts/<int:cohort_id>/edit':
+        status, headers, body_content = cohorts_edit(environ, cohort_id)
+    elif path == '/academic/cohorts/<int:cohort_id>/delete':
+        status, headers, body_content = cohorts_delete(environ, cohort_id)
 
     # --- RUTAS DE MATERIAS (Añadir al bloque if/elif) ---
     elif path == '/academic/subjects/list':

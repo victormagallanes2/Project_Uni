@@ -252,25 +252,34 @@ def fee_schedules_create(environ):
 
 @login_required
 def fee_schedules_list(environ):
+    """Lista todas las tarifas configuradas"""
     db = SessionLocal()
-    session = environ.get('beaker.session')
+    session = environ['beaker.session']
     flash_message = session.pop('flash_message', None)
     
     try:
-        # Usamos joinedload para traer los objetos relacionados en una sola consulta limpia
+        # Obtener todas las tarifas con sus relaciones
         schedules = db.query(FeeSchedule).options(
             joinedload(FeeSchedule.concept),
             joinedload(FeeSchedule.program),
             joinedload(FeeSchedule.term)
         ).all()
         
-        html = render_template('fees/fee_schedules_list.html', 
-                               schedules=schedules, 
-                               flash_message=flash_message)
+        context = {
+            'schedules': schedules,
+            'flash_message': flash_message,
+            'user_name': session.get('user_name')
+        }
+        
+        html = render_template('fees/fee_schedules_list.html', **context)
         return "200 OK", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        
     except Exception as e:
         print(f"Error en fee_schedules_list: {e}")
-        return "500 Internal Server Error", [('Content-type', 'text/plain')], [b"Error al cargar tarifas"]
+        context = {'error': str(e), 'schedules': []}
+        html = render_template('fees/fee_schedules_list.html', **context)
+        return "500 Internal Server Error", [('Content-type', 'text/html')], [html.encode('utf-8')]
+        
     finally:
         db.close()
 

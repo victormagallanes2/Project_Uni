@@ -10,7 +10,7 @@ from sqlalchemy import func, asc
 
 from db import SessionLocal 
 from fees.models import FeeConcept, Payment
-from academic.models import AcademicTerm, Section, Subject, SectionSubject, Program, StudentGrade, ProgramSubject
+from academic.models import AcademicTerm, Cohort, Subject, Program, StudentGrade, ProgramSubject
 from users.models import User 
 from core.views import render_template, login_required, generate_csrf_token, parse_date_safely, redirect, parse_form_data
 from transactions.models import Enrollment
@@ -524,12 +524,12 @@ def enrollments_create(environ):
                 file_path = os.path.join(UPLOAD_FOLDER, filename)
                 file_item.save(file_path)
             
-            section = db.query(Section).join(Section.subjects).join(SectionSubject.subject)\
-                .filter(Subject.program_id == program_id)\
-                .filter(Section.capacity > 0)\
-                .order_by(asc(Section.section_id)).with_for_update().first()
+            cohort = db.query(Cohort).filter(
+                Cohort.program_id == program_id,
+                Cohort.capacity > 0
+            ).order_by(asc(Cohort.cohort_id)).with_for_update().first()
             
-            if not section:
+            if not cohort:
                 session['flash_message'] = "No hay cupos disponibles para este programa."
                 return redirect('/transactions/enrollments/create')
             
@@ -549,7 +549,7 @@ def enrollments_create(environ):
                 for subject_id in selected_subjects:
                     enrollment = Enrollment(
                         student_user_id=target_student_id,
-                        section_id=section.section_id,
+                        cohort_id=cohort.cohort_id,
                         subject_id=int(subject_id),
                         term_id=term_id,
                         enrollment_date=datetime.now().date(),
@@ -557,7 +557,7 @@ def enrollments_create(environ):
                     )
                     db.add(enrollment)
                 
-                section.capacity -= 1
+                cohort.capacity -= 1
                 student.program_id = program_id
                 
                 db.commit()

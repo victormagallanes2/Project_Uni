@@ -1,0 +1,63 @@
+{
+  "type_table_name": "user_types",
+  "user_types": [
+    {
+      "id": 1,
+      "name": "Administrador"
+    },
+    {
+      "id": 2,
+      "name": "Administivo"
+    },
+    {
+      "id": 3,
+      "name": "Profesor"
+    },
+    {
+      "id": 4,
+      "name": "Alumno"
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "national_id": "18165298",
+      "name": "Victor",
+      "last_name": "Magallanes",
+      "email": "victormagallanes2@gmail.com",
+      "password": "$2b$12$A0eZAc2nS90eJEFrX4E6DO4GhyEKku.x.R6iDnMojWWjMcHW7o/Fq",
+      "user_type_id": 1,
+      "program_id": null
+    },
+    {
+      "id": 2,
+      "national_id": "22.654.329",
+      "name": "Lux",
+      "last_name": "Striker",
+      "email": "lux@gmail.com",
+      "password": "$2b$12$7sqQVimxckJahCsVNVtUX.UbkJRXCg9oxvO9cbpwSL5aF5CD6qYp.",
+      "user_type_id": 4,
+      "program_id": 1
+    },
+    {
+      "id": 3,
+      "national_id": "25963849",
+      "name": "Pepe",
+      "last_name": "Trueno",
+      "email": "pepe@gmail.com",
+      "password": "$2b$12$8qHMe6i2B8vQ/5ZpYthkNutdAW8me.7c72UmL8MXPVZtB1N13H7ru",
+      "user_type_id": 4,
+      "program_id": 1
+    },
+    {
+      "id": 4,
+      "national_id": "19874589",
+      "name": "Jose",
+      "last_name": "Lopez",
+      "email": "jose@gmail.com",
+      "password": "$2b$12$9DGF4NSgQig4KOCschgqlOgirvXaf4WJqLEsL0Y6/WpKDG.Sr6OFS",
+      "user_type_id": 4,
+      "program_id": null
+    }
+  ]
+}
